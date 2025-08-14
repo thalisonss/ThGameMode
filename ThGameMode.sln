@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35931.197 d17.13
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ThGameMode", "ThGameMode.csproj", "{93C24FAC-892D-46A0-8752-A950259B943A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Un_InstallThGameMode", "..\Un_InstallThGameMode\Un_InstallThGameMode.csproj", "{FB5E14F0-DCB4-447B-B307-20B2D4B57B69}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ThGameModeService", "..\ThGameModeService\ThGameModeService.csproj", "{EE971492-F042-4038-ADE4-3C81668659EE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{93C24FAC-892D-46A0-8752-A950259B943A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{93C24FAC-892D-46A0-8752-A950259B943A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{93C24FAC-892D-46A0-8752-A950259B943A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB5E14F0-DCB4-447B-B307-20B2D4B57B69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB5E14F0-DCB4-447B-B307-20B2D4B57B69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB5E14F0-DCB4-447B-B307-20B2D4B57B69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB5E14F0-DCB4-447B-B307-20B2D4B57B69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE971492-F042-4038-ADE4-3C81668659EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE971492-F042-4038-ADE4-3C81668659EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE971492-F042-4038-ADE4-3C81668659EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE971492-F042-4038-ADE4-3C81668659EE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

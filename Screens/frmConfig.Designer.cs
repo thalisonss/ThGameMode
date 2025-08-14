@@ -63,6 +63,7 @@
             resources.ApplyResources(btnInstallUninstall, "btnInstallUninstall");
             btnInstallUninstall.Name = "btnInstallUninstall";
             btnInstallUninstall.UseVisualStyleBackColor = true;
+            btnInstallUninstall.Click += btnInstallUninstall_Click;
             // 
             // cboLanguage
             // 
@@ -87,12 +88,14 @@
             // 
             // dgvListServicesAdded
             // 
+            dgvListServicesAdded.AllowUserToAddRows = false;
             dgvListServicesAdded.AllowUserToDeleteRows = false;
             dgvListServicesAdded.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvListServicesAdded.Columns.AddRange(new DataGridViewColumn[] { dgvColumnNameAdded, dgvColumnDeleteAdded });
             resources.ApplyResources(dgvListServicesAdded, "dgvListServicesAdded");
             dgvListServicesAdded.Name = "dgvListServicesAdded";
             dgvListServicesAdded.ReadOnly = true;
+            dgvListServicesAdded.CellClick += dgvListServicesAdded_CellClick;
             // 
             // dgvColumnNameAdded
             // 
@@ -110,34 +113,43 @@
             // 
             resources.ApplyResources(txtSearchServiceAdded, "txtSearchServiceAdded");
             txtSearchServiceAdded.Name = "txtSearchServiceAdded";
+            txtSearchServiceAdded.TextChanged += txtSearchServiceAdded_TextChanged;
             // 
             // dgvListServices
             // 
+            dgvListServices.AllowUserToAddRows = false;
+            dgvListServices.AllowUserToDeleteRows = false;
             dgvListServices.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvListServices.Columns.AddRange(new DataGridViewColumn[] { dgvColumnName, dgvColumnAdd });
             resources.ApplyResources(dgvListServices, "dgvListServices");
             dgvListServices.Name = "dgvListServices";
+            dgvListServices.ReadOnly = true;
+            dgvListServices.CellClick += dgvListServices_CellClick;
             // 
             // dgvColumnName
             // 
             resources.ApplyResources(dgvColumnName, "dgvColumnName");
             dgvColumnName.Name = "dgvColumnName";
+            dgvColumnName.ReadOnly = true;
             // 
             // dgvColumnAdd
             // 
             resources.ApplyResources(dgvColumnAdd, "dgvColumnAdd");
             dgvColumnAdd.Name = "dgvColumnAdd";
+            dgvColumnAdd.ReadOnly = true;
             // 
             // txtSearchService
             // 
             resources.ApplyResources(txtSearchService, "txtSearchService");
             txtSearchService.Name = "txtSearchService";
+            txtSearchService.TextChanged += txtSearchService_TextChanged;
             // 
             // btnRefresh
             // 
             resources.ApplyResources(btnRefresh, "btnRefresh");
             btnRefresh.Name = "btnRefresh";
             btnRefresh.UseVisualStyleBackColor = true;
+            btnRefresh.Click += btnRefresh_Click;
             // 
             // progressBarConfig
             // 
@@ -149,6 +161,7 @@
             resources.ApplyResources(btnSave, "btnSave");
             btnSave.Name = "btnSave";
             btnSave.UseVisualStyleBackColor = true;
+            btnSave.Click += btnSave_Click;
             // 
             // tabControl1
             // 
@@ -207,6 +220,7 @@
             Controls.Add(cboLanguage);
             Controls.Add(btnInstallUninstall);
             Name = "frmConfig";
+            Load += frmConfig_Load;
             ((System.ComponentModel.ISupportInitialize)nudCheckInterval).EndInit();
             ((System.ComponentModel.ISupportInitialize)dgvListServicesAdded).EndInit();
             ((System.ComponentModel.ISupportInitialize)dgvListServices).EndInit();
