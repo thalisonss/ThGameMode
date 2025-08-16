@@ -15,8 +15,6 @@ namespace Un_InstallThGameMode.Screens
 {
     public partial class frmInstall : Form
     {
-
-
         private const string ServiceName = "ThGameModeService";
         private const string ServiceExeName = "ThGameModeService.exe";
 
@@ -41,16 +39,17 @@ namespace Un_InstallThGameMode.Screens
         {
             try
             {
-                string sourceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ThGameModeService");
+                // Pasta onde estão os arquivos de instalação junto com a subpasta ThGameModeService
+                string sourceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ThGameMode");
                 string destDir = txtInstallPath.Text;
 
                 if (!Directory.Exists(sourceDir))
                 {
-                    MessageBox.Show("Pasta ThGameModeService não encontrada!");
+                    MessageBox.Show("Pasta ThGameMode não encontrada!");
                     return;
                 }
 
-                // Copia todos os arquivos do serviço
+                // Copia toda a pasta ThGameMode para o destino
                 foreach (string dirPath in Directory.GetDirectories(sourceDir, "*", SearchOption.AllDirectories))
                 {
                     Directory.CreateDirectory(dirPath.Replace(sourceDir, destDir));
@@ -62,9 +61,17 @@ namespace Un_InstallThGameMode.Screens
                     File.Copy(filePath, newPath, true);
                 }
 
+                // Caminho do executável do serviço dentro da pasta copiada
+                string exePath = Path.Combine(destDir, "ThGameModeService", "ThGameModeService.exe");
+
+                if (!File.Exists(exePath))
+                {
+                    MessageBox.Show("Executável do serviço não encontrado em: " + exePath);
+                    return;
+                }
+
                 // Instala o serviço
-                string exePath = Path.Combine(destDir, "ThGameModeService.exe");
-                var psi = new ProcessStartInfo("sc", $"create ThGameModeService binPath= \"{exePath}\" start= auto")
+                var psi = new ProcessStartInfo("sc", $"create {ServiceName} binPath= \"{exePath}\" start= auto")
                 {
                     Verb = "runas",
                     UseShellExecute = true
@@ -78,6 +85,22 @@ namespace Un_InstallThGameMode.Screens
                 MessageBox.Show($"Erro: {ex.Message}");
             }
         }
+
+
+        private void CopyDirectory(string sourceDir, string destDir)
+        {
+            foreach (string dirPath in Directory.GetDirectories(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                Directory.CreateDirectory(dirPath.Replace(sourceDir, destDir));
+            }
+
+            foreach (string filePath in Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories))
+            {
+                string newPath = filePath.Replace(sourceDir, destDir);
+                File.Copy(filePath, newPath, true);
+            }
+        }
+
 
 
 
