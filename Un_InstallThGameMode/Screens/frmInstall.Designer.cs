@@ -93,7 +93,7 @@
             Controls.Add(btnBrowse);
             Controls.Add(txtInstallPath);
             Name = "frmInstall";
-            Text = "frmInstall";
+            Text = "Install ThGameMode";
             Load += frmInstall_Load;
             ResumeLayout(false);
             PerformLayout();
