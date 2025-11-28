@@ -101,7 +101,7 @@ namespace ThGameMode.Screens
         {
             SaveSettings();
 
-            RestartService("ThGameModeService");
+            RestartService(nameService);
 
             MessageBox.Show("Configuração salva e serviço reiniciado com sucesso!", "Salvar", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
