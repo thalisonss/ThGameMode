@@ -67,8 +67,8 @@
             // 
             // cboLanguage
             // 
-            cboLanguage.FormattingEnabled = true;
             resources.ApplyResources(cboLanguage, "cboLanguage");
+            cboLanguage.FormattingEnabled = true;
             cboLanguage.Name = "cboLanguage";
             // 
             // lblLanguage
