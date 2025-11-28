@@ -100,6 +100,10 @@ namespace ThGameMode.Screens
         private void btnSave_Click(object sender, EventArgs e)
         {
             SaveSettings();
+
+            RestartService("ThGameModeService");
+
+            MessageBox.Show("Configuração salva e serviço reiniciado com sucesso!", "Salvar", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void SaveSettings()
@@ -122,14 +126,37 @@ namespace ThGameMode.Screens
 
                 string path = Path.Combine(serviceFolder, "ThGameModeConfig.json");
                 File.WriteAllText(path, json);
-
-                MessageBox.Show("Configuração salva com sucesso!", "Salvar", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Erro ao salvar configuração: " + ex.Message, "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+
+
         }
+
+        private void RestartService(string serviceName)
+        {
+            try
+            {
+                ServiceController sc = new ServiceController(serviceName);
+
+                if (sc.Status != ServiceControllerStatus.Stopped &&
+                    sc.Status != ServiceControllerStatus.StopPending)
+                {
+                    sc.Stop();
+                    sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+                }
+
+                sc.Start();
+                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Erro ao reiniciar o serviço: " + ex.Message);
+            }
+        }
+
         #endregion
 
         #region | Atualiza Grid |
