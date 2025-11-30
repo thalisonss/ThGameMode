@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmConfig));
             btnInstallUninstall = new Button();
             cboLanguage = new ComboBox();
@@ -51,11 +52,20 @@
             lblPowerPlanClosedApp = new Label();
             lblPowerPlanOpenApp = new Label();
             cboPowerPlanOpenApp = new ComboBox();
+            notifyIcon = new NotifyIcon(components);
+            contextMenuStrip = new ContextMenuStrip(components);
+            ativarDeteccaoToolStripMenuItem = new ToolStripMenuItem();
+            desativarDeteccaoToolStripMenuItem = new ToolStripMenuItem();
+            iniciarServicoToolStripMenuItem = new ToolStripMenuItem();
+            pararServicoToolStripMenuItem = new ToolStripMenuItem();
+            abrirConfiguracoesToolStripMenuItem = new ToolStripMenuItem();
+            sairToolStripMenuItem = new ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)nudCheckInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)dgvListServicesAdded).BeginInit();
             ((System.ComponentModel.ISupportInitialize)dgvListServices).BeginInit();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
+            contextMenuStrip.SuspendLayout();
             SuspendLayout();
             // 
             // btnInstallUninstall
@@ -63,7 +73,6 @@
             resources.ApplyResources(btnInstallUninstall, "btnInstallUninstall");
             btnInstallUninstall.Name = "btnInstallUninstall";
             btnInstallUninstall.UseVisualStyleBackColor = true;
-            btnInstallUninstall.Click += btnInstallUninstall_Click;
             // 
             // cboLanguage
             // 
@@ -210,6 +219,47 @@
             resources.ApplyResources(cboPowerPlanOpenApp, "cboPowerPlanOpenApp");
             cboPowerPlanOpenApp.Name = "cboPowerPlanOpenApp";
             // 
+            // notifyIcon
+            // 
+            notifyIcon.ContextMenuStrip = contextMenuStrip;
+            resources.ApplyResources(notifyIcon, "notifyIcon");
+            // 
+            // contextMenuStrip
+            // 
+            contextMenuStrip.Items.AddRange(new ToolStripItem[] { ativarDeteccaoToolStripMenuItem, desativarDeteccaoToolStripMenuItem, iniciarServicoToolStripMenuItem, pararServicoToolStripMenuItem, abrirConfiguracoesToolStripMenuItem, sairToolStripMenuItem });
+            contextMenuStrip.Name = "contextMenuStrip";
+            resources.ApplyResources(contextMenuStrip, "contextMenuStrip");
+            // 
+            // ativarDeteccaoToolStripMenuItem
+            // 
+            ativarDeteccaoToolStripMenuItem.Name = "ativarDeteccaoToolStripMenuItem";
+            resources.ApplyResources(ativarDeteccaoToolStripMenuItem, "ativarDeteccaoToolStripMenuItem");
+            // 
+            // desativarDeteccaoToolStripMenuItem
+            // 
+            desativarDeteccaoToolStripMenuItem.Name = "desativarDeteccaoToolStripMenuItem";
+            resources.ApplyResources(desativarDeteccaoToolStripMenuItem, "desativarDeteccaoToolStripMenuItem");
+            // 
+            // iniciarServicoToolStripMenuItem
+            // 
+            iniciarServicoToolStripMenuItem.Name = "iniciarServicoToolStripMenuItem";
+            resources.ApplyResources(iniciarServicoToolStripMenuItem, "iniciarServicoToolStripMenuItem");
+            // 
+            // pararServicoToolStripMenuItem
+            // 
+            pararServicoToolStripMenuItem.Name = "pararServicoToolStripMenuItem";
+            resources.ApplyResources(pararServicoToolStripMenuItem, "pararServicoToolStripMenuItem");
+            // 
+            // abrirConfiguracoesToolStripMenuItem
+            // 
+            abrirConfiguracoesToolStripMenuItem.Name = "abrirConfiguracoesToolStripMenuItem";
+            resources.ApplyResources(abrirConfiguracoesToolStripMenuItem, "abrirConfiguracoesToolStripMenuItem");
+            // 
+            // sairToolStripMenuItem
+            // 
+            sairToolStripMenuItem.Name = "sairToolStripMenuItem";
+            resources.ApplyResources(sairToolStripMenuItem, "sairToolStripMenuItem");
+            // 
             // frmConfig
             // 
             resources.ApplyResources(this, "$this");
@@ -227,6 +277,7 @@
             tabControl1.ResumeLayout(false);
             tabPage1.ResumeLayout(false);
             tabPage1.PerformLayout();
+            contextMenuStrip.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -255,5 +306,13 @@
         private Label lblPowerPlanClosedApp;
         private Label lblPowerPlanOpenApp;
         private ComboBox cboPowerPlanOpenApp;
+        private NotifyIcon notifyIcon;
+        private ContextMenuStrip contextMenuStrip;
+        private ToolStripMenuItem ativarDeteccaoToolStripMenuItem;
+        private ToolStripMenuItem desativarDeteccaoToolStripMenuItem;
+        private ToolStripMenuItem iniciarServicoToolStripMenuItem;
+        private ToolStripMenuItem pararServicoToolStripMenuItem;
+        private ToolStripMenuItem abrirConfiguracoesToolStripMenuItem;
+        private ToolStripMenuItem sairToolStripMenuItem;
     }
 }

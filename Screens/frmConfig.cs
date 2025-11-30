@@ -1,50 +1,52 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.ServiceProcess;
-using Microsoft.Win32;
 
 namespace ThGameMode.Screens
 {
     public partial class frmConfig : Form
     {
-        #region | Variáveis |
-        static string nameService = "ThGameModeService";
-        private List<string> _itemsAvailable = new();  // Serviços e programas disponíveis
-        private List<string> _itemsAdded = new();      // Serviços/programas adicionados
-        #endregion
+        // Caminho do JSON na raiz do programa
+        private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "ThGameModeConfig.json");
+
+        // Itens disponíveis e adicionados
+        private List<string> _itemsAvailable = new();
+        private List<string> _itemsAdded = new();
+
+        // Monitor background
+        private CancellationTokenSource _ctsMonitor;
+        private Task _monitorTask;
+        private bool _monitorActive = false;
+        private bool _modoAltoAtivo = false;
+
+        // Tray
+        private NotifyIcon _trayIcon;
+        private ContextMenuStrip _trayMenu;
+        private bool _quitRequested = false;
+
+        // Config atual em memória
+        private Configuracao _config = new();
 
         public frmConfig()
         {
             InitializeComponent();
+            InitializeTray();
         }
 
-        #region | Classes Auxiliares |
-        public class PowerPlan
-        {
-            public string Name { get; set; }
-            public string Guid { get; set; }
-        }
-
-        public class AppConfig
-        {
-            public int CheckInterval { get; set; }
-            public string PowerPlanOpenApp { get; set; }
-            public string PowerPlanClosedApp { get; set; }
-            public List<string> ListServices { get; set; } = new();
-        }
-        #endregion
-
-        #region | Load Form |
+        #region Form Load / Init
         private void frmConfig_Load(object sender, EventArgs e)
         {
-            // Carrega planos de energia
+            // Carrega planos de energia para os combo boxes
             var planos = GetEnergyPlans();
             cboPowerPlanOpenApp.DataSource = planos.ToList();
             cboPowerPlanOpenApp.DisplayMember = "Name";
@@ -54,112 +56,169 @@ namespace ThGameMode.Screens
             cboPowerPlanClosedApp.DisplayMember = "Name";
             cboPowerPlanClosedApp.ValueMember = "Guid";
 
-            // Carrega configurações do JSON, se existir
-            LoadConfigurationsFromJson();
+            // Carrega config (se existir) e popula UI
+            LoadConfig();
 
-            // Carrega serviços e programas
+            // Carrega serviços/processos em execução para popular grid
             LoadAvailableItems();
-
-            // Atualiza o grid
             AtualizaRefresh();
+
+            // Inicia monitor automaticamente (modo padrão ligado)
+            StartMonitor();
         }
         #endregion
 
-        #region | Carregamento Config JSON |
-        private void LoadConfigurationsFromJson()
+        #region Tray (NotifyIcon)
+        private void InitializeTray()
+        {
+            _trayMenu = new ContextMenuStrip();
+            _trayMenu.Items.Add("Ativar detecção", null, (s, e) => StartMonitor());
+            _trayMenu.Items.Add("Desativar detecção", null, (s, e) => StopMonitor());
+            _trayMenu.Items.Add(new ToolStripSeparator());
+            _trayMenu.Items.Add("Abrir configurações", null, (s, e) => ShowWindow());
+
+            var startupItem = new ToolStripMenuItem("Iniciar com Windows");
+            startupItem.Checked = IsStartupEnabled();
+            startupItem.Click += (s, e) => ToggleStartup(startupItem);
+            _trayMenu.Items.Add(startupItem);
+
+            _trayMenu.Items.Add(new ToolStripSeparator());
+            _trayMenu.Items.Add("Sair", null, (s, e) =>
+            {
+                _quitRequested = true;
+                _trayIcon.Visible = false; // remove ícone da bandeja
+                Application.Exit();        // fecha o app
+            });
+
+            _trayIcon = new NotifyIcon
+            {
+                Icon = SystemIcons.Application, // substitua pelo seu ícone
+                Text = "ThGameMode",
+                ContextMenuStrip = _trayMenu,
+                Visible = true
+            };
+            _trayIcon.DoubleClick += (s, e) => ShowWindow();
+        }
+
+        private void ShowWindow()
+        {
+            this.WindowState = FormWindowState.Normal;
+            this.Show();
+            this.BringToFront();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.Hide(); // esconde o form, mantém tray
+            }
+        }
+
+        private void ToggleStartup(ToolStripItem menuItem)
         {
             try
             {
-                string serviceFolder = Path.Combine(AppContext.BaseDirectory, "ThGameModeService");
-                string path = Path.Combine(serviceFolder, "ThGameModeConfig.json");
+                var mi = (ToolStripMenuItem)menuItem;
+                if (IsStartupEnabled())
+                {
+                    DisableStartup();
+                    mi.Checked = false;
+                }
+                else
+                {
+                    EnableStartup();
+                    mi.Checked = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Erro ao alterar startup: " + ex.Message);
+            }
+        }
 
-                if (!File.Exists(path))
-                    return; // Se não existe, não faz nada
+        private bool IsStartupEnabled()
+        {
+            using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false);
+            return rk?.GetValue("ThGameMode") != null;
+        }
 
-                string json = File.ReadAllText(path);
-                var config = JsonSerializer.Deserialize<AppConfig>(json);
+        private void EnableStartup()
+        {
+            using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+            rk.SetValue("ThGameMode", Application.ExecutablePath);
+        }
 
-                if (config == null)
+        private void DisableStartup()
+        {
+            using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+            rk.DeleteValue("ThGameMode", false);
+        }
+        #endregion
+
+        #region Config JSON I/O
+        private void LoadConfig()
+        {
+            try
+            {
+                if (!File.Exists(_configPath))
+                {
+                    _config = new Configuracao(); // default
+                    ApplyConfigToUI();
                     return;
+                }
 
-                nudCheckInterval.Value = config.CheckInterval;
-                cboPowerPlanOpenApp.SelectedValue = config.PowerPlanOpenApp;
-                cboPowerPlanClosedApp.SelectedValue = config.PowerPlanClosedApp;
-                _itemsAdded = config.ListServices ?? new List<string>();
+                string json = File.ReadAllText(_configPath, Encoding.UTF8);
+                _config = JsonSerializer.Deserialize<Configuracao>(json) ?? new Configuracao();
+                _itemsAdded = _config.ListServices ?? new List<string>();
+                ApplyConfigToUI();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Erro ao carregar configuração: " + ex.Message);
+            }
+        }
+
+        private void ApplyConfigToUI()
+        {
+            try
+            {
+                if (nudCheckInterval.InvokeRequired)
+                {
+                    nudCheckInterval.Invoke(new Action(ApplyConfigToUI));
+                    return;
+                }
+
+                nudCheckInterval.Value = Math.Max(nudCheckInterval.Minimum, Math.Min(nudCheckInterval.Maximum, _config.CheckInterval));
+                cboPowerPlanOpenApp.SelectedValue = _config.PowerPlanOpenApp;
+                cboPowerPlanClosedApp.SelectedValue = _config.PowerPlanClosedApp;
 
                 AtualizarGridServicesAdded();
             }
+            catch { }
+        }
+
+        private void SaveConfig()
+        {
+            try
+            {
+                _config.CheckInterval = (int)nudCheckInterval.Value;
+                _config.PowerPlanOpenApp = cboPowerPlanOpenApp.SelectedValue?.ToString() ?? string.Empty;
+                _config.PowerPlanClosedApp = cboPowerPlanClosedApp.SelectedValue?.ToString() ?? string.Empty;
+                _config.ListServices = _itemsAdded.ToList();
+
+                string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_configPath, json, Encoding.UTF8);
+            }
             catch (Exception ex)
             {
-                MessageBox.Show("Erro ao carregar configurações: " + ex.Message, "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Erro ao salvar configuração: " + ex.Message);
             }
         }
         #endregion
 
-        #region | Salvando Configurações |
-        private void btnSave_Click(object sender, EventArgs e)
-        {
-            SaveSettings();
-
-            RestartService(nameService);
-
-            MessageBox.Show("Configuração salva e serviço reiniciado com sucesso!", "Salvar", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
-        private void SaveSettings()
-        {
-            try
-            {
-                var config = new AppConfig
-                {
-                    CheckInterval = (int)nudCheckInterval.Value,
-                    PowerPlanOpenApp = cboPowerPlanOpenApp.SelectedValue?.ToString(),
-                    PowerPlanClosedApp = cboPowerPlanClosedApp.SelectedValue?.ToString(),
-                    ListServices = _itemsAdded.ToList()
-                };
-
-                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-
-                string rootFolder = AppContext.BaseDirectory;
-                string serviceFolder = Path.Combine(rootFolder, "ThGameModeService");
-                Directory.CreateDirectory(serviceFolder);
-
-                string path = Path.Combine(serviceFolder, "ThGameModeConfig.json");
-                File.WriteAllText(path, json);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Erro ao salvar configuração: " + ex.Message, "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-
-        }
-
-        private void RestartService(string serviceName)
-        {
-            try
-            {
-                ServiceController sc = new ServiceController(serviceName);
-
-                if (sc.Status != ServiceControllerStatus.Stopped &&
-                    sc.Status != ServiceControllerStatus.StopPending)
-                {
-                    sc.Stop();
-                    sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
-                }
-
-                sc.Start();
-                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Erro ao reiniciar o serviço: " + ex.Message);
-            }
-        }
-
-        #endregion
-
-        #region | Atualiza Grid |
+        #region Grid helpers
         private void AtualizarGridServicesAdded()
         {
             string filtro = txtSearchServiceAdded.Text.Trim().ToLower();
@@ -181,14 +240,10 @@ namespace ThGameMode.Screens
             foreach (var item in _itemsAvailable)
             {
                 if (!adicionados.Contains(item))
-                {
                     dgvListServices.Rows.Add(item);
-                }
             }
         }
-        #endregion
 
-        #region | Buscar / Filtrar |
         private void txtSearchService_TextChanged(object sender, EventArgs e)
         {
             string filtro = txtSearchService.Text.Trim().ToLower();
@@ -199,9 +254,7 @@ namespace ThGameMode.Screens
             foreach (var item in _itemsAvailable)
             {
                 if (!adicionados.Contains(item) && item.ToLower().Contains(filtro))
-                {
                     dgvListServices.Rows.Add(item);
-                }
             }
         }
 
@@ -209,15 +262,12 @@ namespace ThGameMode.Screens
         {
             AtualizarGridServicesAdded();
         }
-        #endregion
 
-        #region | Click Grid |
         private void dgvListServices_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            // Coluna do botão de adicionar é a coluna 1 (ajuste conforme sua grid)
             if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
 
-            string item = dgvListServices.Rows[e.RowIndex].Cells[0].Value?.ToString();
+            var item = dgvListServices.Rows[e.RowIndex].Cells[0].Value?.ToString();
             if (string.IsNullOrEmpty(item)) return;
 
             if (!_itemsAdded.Contains(item, StringComparer.OrdinalIgnoreCase))
@@ -225,115 +275,68 @@ namespace ThGameMode.Screens
                 _itemsAdded.Add(item);
                 AtualizarGridServicesAdded();
                 dgvListServices.Rows.RemoveAt(e.RowIndex);
-            }
-            else
-            {
-                MessageBox.Show("Esse item já foi adicionado.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                SaveConfigAndRestartMonitor();
             }
         }
-
-
 
         private void dgvListServicesAdded_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0 || e.ColumnIndex != 1) return; // botão de remover
+            if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
 
-            string item = dgvListServicesAdded.Rows[e.RowIndex].Cells[0].Value?.ToString();
+            var item = dgvListServicesAdded.Rows[e.RowIndex].Cells[0].Value?.ToString();
             if (string.IsNullOrEmpty(item)) return;
 
-            _itemsAdded.Remove(item);
+            _itemsAdded.RemoveAll(x => string.Equals(x, item, StringComparison.OrdinalIgnoreCase));
             AtualizarGridServicesAdded();
 
-            // Atualiza a lista disponível (recarrega serviços + processos em execução)
             LoadAvailableItems();
             AtualizaRefresh();
+            SaveConfigAndRestartMonitor();
         }
-
         #endregion
 
-        #region | Carregar Serviços + Programas |
+        #region Load available items
         private void LoadAvailableItems()
         {
             _itemsAvailable.Clear();
 
-            // 1️⃣ Adiciona serviços em execução
-            _itemsAvailable.AddRange(ServiceController.GetServices()
-                .Where(s => s.Status == ServiceControllerStatus.Running)
-                .Select(s => s.ServiceName));
-
-            // 2️⃣ Adiciona programas em execução (processos)
-            var processos = Process.GetProcesses()
-                .Select(p =>
-                {
-                    try { return p.ProcessName; }
-                    catch { return null; }
-                })
-                .Where(n => !string.IsNullOrEmpty(n));
-
-            _itemsAvailable.AddRange(processos);
-
-            // Remove duplicados e ordena
-            _itemsAvailable = _itemsAvailable
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => n)
-                .ToList();
-        }
-
-
-        private List<string> GetInstalledPrograms()
-        {
-            var programas = new List<string>();
-            string[] paths = new string[]
+            try
             {
-                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-            };
-
-            foreach (var path in paths)
-            {
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(path))
-                {
-                    if (key == null) continue;
-                    foreach (var subkeyName in key.GetSubKeyNames())
-                    {
-                        using (RegistryKey subkey = key.OpenSubKey(subkeyName))
-                        {
-                            var displayName = subkey?.GetValue("DisplayName") as string;
-                            if (!string.IsNullOrEmpty(displayName))
-                                programas.Add(displayName);
-                        }
-                    }
-                }
+                var runningServices = ServiceController.GetServices()
+                    .Where(s => s.Status == ServiceControllerStatus.Running)
+                    .Select(s => s.ServiceName);
+                _itemsAvailable.AddRange(runningServices);
             }
+            catch { }
 
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"))
+            try
             {
-                if (key != null)
-                {
-                    foreach (var subkeyName in key.GetSubKeyNames())
-                    {
-                        using (RegistryKey subkey = key.OpenSubKey(subkeyName))
-                        {
-                            var displayName = subkey?.GetValue("DisplayName") as string;
-                            if (!string.IsNullOrEmpty(displayName))
-                                programas.Add(displayName);
-                        }
-                    }
-                }
+                var processos = Process.GetProcesses()
+                    .Select(p => { try { return p.ProcessName; } catch { return null; } })
+                    .Where(n => !string.IsNullOrEmpty(n));
+                _itemsAvailable.AddRange(processos);
             }
+            catch { }
 
-            return programas;
+            _itemsAvailable = _itemsAvailable.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n).ToList();
         }
         #endregion
 
-        #region | Planos de Energia |
+        #region Planos de energia
+        public class PowerPlan
+        {
+            public string Name { get; set; }
+            public string Guid { get; set; }
+            public override string ToString() => $"{Name} ({Guid})";
+        }
+
         private List<PowerPlan> GetEnergyPlans()
         {
             var planos = new List<PowerPlan>();
 
             try
             {
-                var process = new Process
+                using var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
@@ -345,16 +348,13 @@ namespace ThGameMode.Screens
                         StandardOutputEncoding = Encoding.UTF8
                     }
                 };
-
                 process.Start();
                 string output = process.StandardOutput.ReadToEnd();
                 process.WaitForExit();
 
-                var linhas = output.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-
-                foreach (string linha in linhas)
+                foreach (string linha in output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    if (linha.Contains("GUID"))
+                    if (linha.Contains("GUID", StringComparison.OrdinalIgnoreCase))
                     {
                         var partes = linha.Trim().Split(':');
                         if (partes.Length > 1)
@@ -367,24 +367,198 @@ namespace ThGameMode.Screens
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Erro ao obter planos de energia: " + ex.Message);
-            }
+            catch { }
+
+            if (!planos.Any())
+                planos.Add(new PowerPlan { Guid = "", Name = "Padrão do sistema" });
 
             return planos;
         }
+
+        private void TrocarPlano(string guid)
+        {
+            if (string.IsNullOrWhiteSpace(guid)) return;
+
+            try
+            {
+                using var p = new Process
+                {
+                    StartInfo = new ProcessStartInfo("powercfg", $"/setactive {guid}")
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    }
+                };
+                p.Start();
+                p.WaitForExit();
+            }
+            catch (Exception ex)
+            {
+                _trayIcon?.ShowBalloonTip(1500, "ThGameMode", $"Erro ao trocar plano: {ex.Message}", ToolTipIcon.Error);
+            }
+        }
         #endregion
 
+        #region Monitor
+        private void StartMonitor()
+        {
+            if (_monitorActive) return;
+
+            _ctsMonitor = new CancellationTokenSource();
+            _monitorActive = true;
+            _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
+            _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção ativada", ToolTipIcon.Info);
+        }
+
+        private void StopMonitor()
+        {
+            if (!_monitorActive) return;
+
+            try
+            {
+                _ctsMonitor.Cancel();
+                _monitorTask?.Wait(2000);
+            }
+            catch { }
+            finally
+            {
+                _monitorActive = false;
+                _modoAltoAtivo = false;
+                _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção desativada", ToolTipIcon.Info);
+            }
+        }
+
+        private async Task MonitorLoopAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    LoadConfig();
+
+                    bool itemRodando = false;
+
+                    foreach (var item in _config.ListServices)
+                    {
+                        if (string.IsNullOrWhiteSpace(item)) continue;
+
+                        bool rodando = await IsItemRunningAsync(item);
+                        if (rodando)
+                        {
+                            itemRodando = true;
+                            break;
+                        }
+                    }
+
+                    if (itemRodando && !_modoAltoAtivo)
+                    {
+                        TrocarPlano(_config.PowerPlanOpenApp);
+                        _modoAltoAtivo = true;
+                        _trayIcon!.Text = "ThGameMode — Alto desempenho ativo";
+                    }
+                    else if (!itemRodando && _modoAltoAtivo)
+                    {
+                        TrocarPlano(_config.PowerPlanClosedApp);
+                        _modoAltoAtivo = false;
+                        _trayIcon!.Text = "ThGameMode — Economia ativa";
+                    }
+                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex)
+                {
+                    _trayIcon?.ShowBalloonTip(1000, "ThGameMode", $"Erro no monitor: {ex.Message}", ToolTipIcon.Warning);
+                }
+
+                int intervalo = Math.Max(1, _config.CheckInterval);
+                try { await Task.Delay(intervalo * 1000, token); }
+                catch (OperationCanceledException) { break; }
+            }
+        }
+
+        private async Task<bool> IsItemRunningAsync(string item)
+        {
+            try
+            {
+                using var sc = new ServiceController(item);
+                return sc.Status == ServiceControllerStatus.Running;
+            }
+            catch { }
+
+            string procName = item;
+            string windowText = null;
+            if (item.Contains("|"))
+            {
+                var parts = item.Split('|', 2);
+                procName = parts[0];
+                windowText = parts[1];
+            }
+
+            try
+            {
+                var processos = Process.GetProcessesByName(procName);
+                if (processos.Length == 0) return false;
+
+                if (string.IsNullOrEmpty(windowText)) return true;
+
+                foreach (var p in processos)
+                {
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(p.MainWindowTitle) &&
+                            p.MainWindowTitle.IndexOf(windowText, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            return true;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            return false;
+        }
+        #endregion
+
+        #region Save & Restart Monitor
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            SaveConfigAndRestartMonitor();
+        }
+
+        private void SaveConfigAndRestartMonitor()
+        {
+            SaveConfig();
+            StopMonitor();
+            LoadAvailableItems();
+            AtualizaRefresh();
+            StartMonitor();
+        }
+        #endregion
+
+        #region Buttons e Refresh
         private void btnRefresh_Click(object sender, EventArgs e)
         {
-            LoadAvailableItems(); // Recarrega serviços + processos em execução
-            AtualizaRefresh();    // Atualiza o DataGridView de serviços em andamento 
+            LoadAvailableItems();
+            AtualizaRefresh();
         }
+        #endregion
 
-        private void btnInstallUninstall_Click(object sender, EventArgs e)
+        #region Dispose / FormClosing
+        protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if (!_quitRequested && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                this.Hide(); // apenas esconde o form
+                return;
+            }
 
+            // Limpa tray e finaliza monitor
+            try { _trayIcon.Visible = false; _trayIcon.Dispose(); } catch { }
+            StopMonitor();
+
+            base.OnFormClosing(e);
         }
+        #endregion
     }
 }
