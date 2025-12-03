@@ -34,6 +34,7 @@ namespace ThGameMode.Screens
         private NotifyIcon _trayIcon;
         private Icon _iconEconomia;
         private Icon _iconAltoDesempenho;
+        private Icon _iconAltoGlow;
         private Icon _iconPadrao;
         private ContextMenuStrip _trayMenu;
         private bool _quitRequested = false;
@@ -41,10 +42,16 @@ namespace ThGameMode.Screens
         // Config atual em memória
         private Configuracao _config = new();
 
+        // Estado do tray
         private DateTime _modoAtivadoEm = DateTime.Now;
         private string _ultimoProcessoDetectado = "Nenhum";
         private DateTime _ultimaMudanca = DateTime.Now;
         private System.Windows.Forms.Timer _tooltipTimer;
+
+        // Timer de animação do ícone (opcional)
+        private System.Windows.Forms.Timer _animationTimer;
+        private bool _animationState = false;
+        private bool _isHighPerformance = false;
 
 
 
@@ -86,6 +93,10 @@ namespace ThGameMode.Screens
             };
             _tooltipTimer.Start();
 
+            _animationTimer = new System.Windows.Forms.Timer();
+            _animationTimer.Interval = 500; // 0.5s
+            _animationTimer.Tick += AnimationTick;
+
         }
         #endregion
 
@@ -95,6 +106,7 @@ namespace ThGameMode.Screens
             // Carrega ícones (coloque eles na mesma pasta do EXE)
             _iconEconomia = new Icon("icon_economia.ico");
             _iconAltoDesempenho = new Icon("icon_alto_desempenho.ico");
+            _iconAltoGlow = new Icon("icon_alto_glow.ico");
             _iconPadrao = new Icon("icon_padrao.ico");
 
             _trayMenu = new ContextMenuStrip();
@@ -124,6 +136,9 @@ namespace ThGameMode.Screens
                 Visible = true
             };
             _trayIcon.DoubleClick += (s, e) => ShowWindow();
+
+           
+
         }
 
         private void ShowWindow()
@@ -197,9 +212,15 @@ namespace ThGameMode.Screens
             {
                 _trayIcon.Icon = _iconAltoDesempenho;
                 _trayIcon.Text = "ThGameMode — Alto desempenho ativo";
+
+                // inicia animação
+                _animationTimer.Start();
             }
             else
             {
+                // para animação
+                _animationTimer.Stop();
+
                 _trayIcon.Icon = _iconEconomia;
                 _trayIcon.Text = "ThGameMode — Economia de energia ativa";
             }
@@ -229,6 +250,15 @@ namespace ThGameMode.Screens
             _trayIcon.Text = tooltip.Length > 63
                 ? tooltip.Substring(0, 63)
                 : tooltip;
+        }
+
+        private void AnimationTick(object sender, EventArgs e)
+        {
+            if (!_modoAltoAtivo) return;
+
+            _animationState = !_animationState;
+
+            _trayIcon.Icon = _animationState ? _iconAltoGlow : _iconAltoDesempenho;
         }
 
 
