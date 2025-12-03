@@ -31,6 +31,9 @@ namespace ThGameMode.Screens
 
         // Tray
         private NotifyIcon _trayIcon;
+        private Icon _iconEconomia;
+        private Icon _iconAltoDesempenho;
+        private Icon _iconPadrao;
         private ContextMenuStrip _trayMenu;
         private bool _quitRequested = false;
 
@@ -71,6 +74,11 @@ namespace ThGameMode.Screens
         #region Tray (NotifyIcon)
         private void InitializeTray()
         {
+            // Carrega ícones (coloque eles na mesma pasta do EXE)
+            _iconEconomia = new Icon("icon_economia.ico");
+            _iconAltoDesempenho = new Icon("icon_alto_desempenho.ico");
+            _iconPadrao = new Icon("icon_padrao.ico");
+
             _trayMenu = new ContextMenuStrip();
             _trayMenu.Items.Add("Ativar detecção", null, (s, e) => StartMonitor());
             _trayMenu.Items.Add("Desativar detecção", null, (s, e) => StopMonitor());
@@ -93,7 +101,7 @@ namespace ThGameMode.Screens
             _trayIcon = new NotifyIcon
             {
                 Icon = SystemIcons.Application, // substitua pelo seu ícone
-                Text = "ThGameMode",
+                Text = "ThGameMode — Aguardando...",
                 ContextMenuStrip = _trayMenu,
                 Visible = true
             };
@@ -155,6 +163,24 @@ namespace ThGameMode.Screens
             using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
             rk.DeleteValue("ThGameMode", false);
         }
+
+        public void UpdateTrayStatus(bool altoDesempenhoAtivo)
+        {
+            if (_trayIcon == null)
+                return;
+
+            if (altoDesempenhoAtivo)
+            {
+                _trayIcon.Icon = _iconAltoDesempenho;
+                _trayIcon.Text = "ThGameMode — Alto desempenho ativo";
+            }
+            else
+            {
+                _trayIcon.Icon = _iconEconomia;
+                _trayIcon.Text = "ThGameMode — Economia de energia ativa";
+            }
+        }
+
         #endregion
 
         #region Config JSON I/O
@@ -425,6 +451,8 @@ namespace ThGameMode.Screens
                 _monitorActive = false;
                 _modoAltoAtivo = false;
                 _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção desativada", ToolTipIcon.Info);
+                _trayIcon.Icon = _iconPadrao;
+                _trayIcon.Text = "ThGameMode — Desativado";
             }
         }
 
@@ -455,12 +483,14 @@ namespace ThGameMode.Screens
                         TrocarPlano(_config.PowerPlanOpenApp);
                         _modoAltoAtivo = true;
                         _trayIcon!.Text = "ThGameMode — Alto desempenho ativo";
+                        UpdateTrayStatus(true);
                     }
                     else if (!itemRodando && _modoAltoAtivo)
                     {
                         TrocarPlano(_config.PowerPlanClosedApp);
                         _modoAltoAtivo = false;
                         _trayIcon!.Text = "ThGameMode — Economia ativa";
+                        UpdateTrayStatus(false);
                     }
                 }
                 catch (OperationCanceledException) { break; }
