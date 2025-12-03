@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Threading;
 
 namespace ThGameMode.Screens
 {
@@ -40,6 +41,13 @@ namespace ThGameMode.Screens
         // Config atual em memória
         private Configuracao _config = new();
 
+        private DateTime _modoAtivadoEm = DateTime.Now;
+        private string _ultimoProcessoDetectado = "Nenhum";
+        private DateTime _ultimaMudanca = DateTime.Now;
+        private System.Windows.Forms.Timer _tooltipTimer;
+
+
+
         public frmConfig()
         {
             InitializeComponent();
@@ -68,6 +76,16 @@ namespace ThGameMode.Screens
 
             // Inicia monitor automaticamente (modo padrão ligado)
             StartMonitor();
+
+            _tooltipTimer = new System.Windows.Forms.Timer();
+            _tooltipTimer.Interval = 1000; // 1 segundo
+            _tooltipTimer.Tick += (s, e) =>
+            {
+                // Atualiza tooltip a cada 1s sem mudar estado
+                UpdateTrayTooltip(_modoAltoAtivo);
+            };
+            _tooltipTimer.Start();
+
         }
         #endregion
 
@@ -164,11 +182,17 @@ namespace ThGameMode.Screens
             rk.DeleteValue("ThGameMode", false);
         }
 
-        public void UpdateTrayStatus(bool altoDesempenhoAtivo)
+        public void UpdateTrayStatus(bool altoDesempenhoAtivo, string processoDetectado = "")
         {
+            if (!string.IsNullOrWhiteSpace(processoDetectado))
+                _ultimoProcessoDetectado = processoDetectado;
+
             if (_trayIcon == null)
                 return;
 
+            _ultimaMudanca = DateTime.Now;
+
+            // ícone + texto curto
             if (altoDesempenhoAtivo)
             {
                 _trayIcon.Icon = _iconAltoDesempenho;
@@ -179,7 +203,34 @@ namespace ThGameMode.Screens
                 _trayIcon.Icon = _iconEconomia;
                 _trayIcon.Text = "ThGameMode — Economia de energia ativa";
             }
+
+            // reinicia contagem do tempo
+            _modoAtivadoEm = DateTime.Now;
+
+            // atualiza tooltip completo
+            UpdateTrayTooltip(altoDesempenhoAtivo);
         }
+
+        private void UpdateTrayTooltip(bool altoDesempenhoAtivo)
+        {
+            if (_trayIcon == null) return;
+
+            TimeSpan tempo = DateTime.Now - _modoAtivadoEm;
+
+            string modo = altoDesempenhoAtivo ? "Alto desempenho" : "Economia";
+            string tempoFormatado = tempo.ToString(@"hh\:mm\:ss");
+
+            string tooltip =
+                $"Modo atual: {modo}\n" +
+                $"Tempo ativo: {tempoFormatado}\n" +
+                $"Último jogo: {_ultimoProcessoDetectado}\n" +
+                $"Última mudança: {_ultimaMudanca:HH:mm:ss}";
+
+            _trayIcon.Text = tooltip.Length > 63
+                ? tooltip.Substring(0, 63)
+                : tooltip;
+        }
+
 
         #endregion
 
