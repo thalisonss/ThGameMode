@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
+using ThGameMode.Utils;
 
 namespace ThGameMode.Screens
 {
@@ -64,39 +65,51 @@ namespace ThGameMode.Screens
         #region Form Load / Init
         private void frmConfig_Load(object sender, EventArgs e)
         {
-            // Carrega planos de energia para os combo boxes
-            var planos = GetEnergyPlans();
-            cboPowerPlanOpenApp.DataSource = planos.ToList();
-            cboPowerPlanOpenApp.DisplayMember = "Name";
-            cboPowerPlanOpenApp.ValueMember = "Guid";
-
-            cboPowerPlanClosedApp.DataSource = planos.ToList();
-            cboPowerPlanClosedApp.DisplayMember = "Name";
-            cboPowerPlanClosedApp.ValueMember = "Guid";
-
-            // Carrega config (se existir) e popula UI
-            LoadConfig();
-
-            // Carrega serviços/processos em execução para popular grid
-            LoadAvailableItems();
-            AtualizaRefresh();
-
-            // Inicia monitor automaticamente (modo padrão ligado)
-            StartMonitor();
-
-            _tooltipTimer = new System.Windows.Forms.Timer();
-            _tooltipTimer.Interval = 1000; // 1 segundo
-            _tooltipTimer.Tick += (s, e) =>
+            try
             {
-                // Atualiza tooltip a cada 1s sem mudar estado
-                UpdateTrayTooltip(_modoAltoAtivo);
-            };
-            _tooltipTimer.Start();
+                // Carrega planos de energia para os combo boxes
+                AppLogger.Write(AppLogger.LogLevel.Info, "Inicializando interface e carregando configurações...");
 
-            _animationTimer = new System.Windows.Forms.Timer();
-            _animationTimer.Interval = 500; // 0.5s
-            _animationTimer.Tick += AnimationTick;
+                var planos = GetEnergyPlans();
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Planos de energia carregados: {planos.Count()} encontrados.");
 
+                cboPowerPlanOpenApp.DataSource = planos.ToList();
+                cboPowerPlanOpenApp.DisplayMember = "Name";
+                cboPowerPlanOpenApp.ValueMember = "Guid";
+
+                cboPowerPlanClosedApp.DataSource = planos.ToList();
+                cboPowerPlanClosedApp.DisplayMember = "Name";
+                cboPowerPlanClosedApp.ValueMember = "Guid";
+
+                // Carrega config (se existir) e popula UI
+                LoadConfig();
+
+                // Carrega serviços/processos em execução para popular grid
+                LoadAvailableItems();
+                AtualizaRefresh();
+
+                // Inicia monitor automaticamente (modo padrão ligado)
+                StartMonitor();
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
+
+                _tooltipTimer = new System.Windows.Forms.Timer();
+                _tooltipTimer.Interval = 1000; // 1 segundo
+                _tooltipTimer.Tick += (s, e) =>
+                {
+                    // Atualiza tooltip a cada 1s sem mudar estado
+                    UpdateTrayTooltip(_modoAltoAtivo);
+                };
+                _tooltipTimer.Start();
+
+                _animationTimer = new System.Windows.Forms.Timer();
+                _animationTimer.Interval = 500; // 0.5s
+                _animationTimer.Tick += AnimationTick;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro na inicialização do formulário frmConfig: " + ex.Message);
+                MessageBox.Show("Erro ao iniciar o aplicativo: " + ex.Message);
+            }
         }
         #endregion
 
@@ -199,6 +212,8 @@ namespace ThGameMode.Screens
 
         public void UpdateTrayStatus(bool altoDesempenhoAtivo, string processoDetectado = "")
         {
+            AppLogger.Write(AppLogger.LogLevel.Info, $"Atualizando tray. Estado: {(altoDesempenhoAtivo ? "Alto desempenho" : "Economia")}, Processo detectado: {processoDetectado}");
+
             if (!string.IsNullOrWhiteSpace(processoDetectado))
                 _ultimoProcessoDetectado = processoDetectado;
 
@@ -269,8 +284,11 @@ namespace ThGameMode.Screens
         {
             try
             {
+                AppLogger.Write(AppLogger.LogLevel.Info, "Carregando configuração do arquivo JSON...");
+
                 if (!File.Exists(_configPath))
                 {
+                    AppLogger.Write(AppLogger.LogLevel.Warning, "Arquivo de configuração não encontrado. Usando valores padrão.");
                     _config = new Configuracao(); // default
                     ApplyConfigToUI();
                     return;
@@ -279,10 +297,14 @@ namespace ThGameMode.Screens
                 string json = File.ReadAllText(_configPath, Encoding.UTF8);
                 _config = JsonSerializer.Deserialize<Configuracao>(json) ?? new Configuracao();
                 _itemsAdded = _config.ListServices ?? new List<string>();
+
+                AppLogger.Write(AppLogger.LogLevel.Info, "Configuração carregada com sucesso.");
+
                 ApplyConfigToUI();
             }
             catch (Exception ex)
             {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao carregar configuração: " + ex.Message);
                 MessageBox.Show("Erro ao carregar configuração: " + ex.Message);
             }
         }
@@ -308,6 +330,8 @@ namespace ThGameMode.Screens
 
         private void SaveConfig()
         {
+            AppLogger.Write(AppLogger.LogLevel.Info, "Salvando configuração no arquivo JSON...");
+
             try
             {
                 _config.CheckInterval = (int)nudCheckInterval.Value;
@@ -317,9 +341,12 @@ namespace ThGameMode.Screens
 
                 string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json, Encoding.UTF8);
+
+                AppLogger.Write(AppLogger.LogLevel.Info, "Configuração salva com sucesso.");
             }
             catch (Exception ex)
             {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao salvar configuração: " + ex.Message);
                 MessageBox.Show("Erro ao salvar configuração: " + ex.Message);
             }
         }
@@ -496,11 +523,14 @@ namespace ThGameMode.Screens
                         UseShellExecute = false
                     }
                 };
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Trocando plano de energia para GUID: {guid}");
+
                 p.Start();
                 p.WaitForExit();
             }
             catch (Exception ex)
             {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao trocar plano de energia: " + ex.Message);
                 _trayIcon?.ShowBalloonTip(1500, "ThGameMode", $"Erro ao trocar plano: {ex.Message}", ToolTipIcon.Error);
             }
         }
@@ -509,24 +539,49 @@ namespace ThGameMode.Screens
         #region Monitor
         private void StartMonitor()
         {
-            if (_monitorActive) return;
+            if (_monitorActive)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Warning, "Monitor já está ativo. Ignorando StartMonitor.");
+                return;
+            }
 
-            _ctsMonitor = new CancellationTokenSource();
-            _monitorActive = true;
-            _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
-            _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção ativada", ToolTipIcon.Info);
+            AppLogger.Write(AppLogger.LogLevel.Info, "Iniciando monitor de serviços/processos...");
+
+            try
+            {
+                _ctsMonitor = new CancellationTokenSource();
+                _monitorActive = true;
+                _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
+                _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção ativada", ToolTipIcon.Info);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao carregar configuração antes de iniciar o monitor: " + ex.Message);
+                MessageBox.Show("Erro ao carregar configuração: " + ex.Message);
+            }         
         }
 
         private void StopMonitor()
         {
-            if (!_monitorActive) return;
+            if (!_monitorActive)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Warning, "Monitor não está ativo. Ignorando StopMonitor.");
+                return;
+            }
+
+            AppLogger.Write(AppLogger.LogLevel.Info, "Parando monitor de serviços/processos...");
 
             try
             {
                 _ctsMonitor.Cancel();
                 _monitorTask?.Wait(2000);
+
+                AppLogger.Write(AppLogger.LogLevel.Info, "Monitor parado com sucesso.");
             }
-            catch { }
+            catch
+            { 
+                AppLogger.Write(AppLogger.LogLevel.Error, "Monitor não respondeu ao cancelamento em tempo hábil.");
+            }
             finally
             {
                 _monitorActive = false;
@@ -539,6 +594,8 @@ namespace ThGameMode.Screens
 
         private async Task MonitorLoopAsync(CancellationToken token)
         {
+            AppLogger.Write(AppLogger.LogLevel.Info, "Monitor iniciado.");
+
             while (!token.IsCancellationRequested)
             {
                 try
@@ -554,6 +611,7 @@ namespace ThGameMode.Screens
                         bool rodando = await IsItemRunningAsync(item);
                         if (rodando)
                         {
+                            AppLogger.Write(AppLogger.LogLevel.Info, $"Item detectado em execução: {item}");
                             itemRodando = true;
                             break;
                         }
@@ -573,10 +631,13 @@ namespace ThGameMode.Screens
                         _trayIcon!.Text = "ThGameMode — Economia ativa";
                         UpdateTrayStatus(false);
                     }
+
+                    AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor verificação concluída. Estado atual: {(_modoAltoAtivo ? "Alto desempenho" : "Economia")}");
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
+                    AppLogger.Write(AppLogger.LogLevel.Error, "Erro no monitor: " + ex.Message);
                     _trayIcon?.ShowBalloonTip(1000, "ThGameMode", $"Erro no monitor: {ex.Message}", ToolTipIcon.Warning);
                 }
 
