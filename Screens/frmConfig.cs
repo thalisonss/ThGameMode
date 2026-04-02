@@ -8,7 +8,6 @@ using System.Linq;
 using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
@@ -88,10 +87,6 @@ namespace ThGameMode.Screens
                 LoadAvailableItems();
                 AtualizaRefresh();
 
-                // Inicia monitor automaticamente (modo padrão ligado)
-                StartMonitor();
-                AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
-
                 _tooltipTimer = new System.Windows.Forms.Timer();
                 _tooltipTimer.Interval = 1000; // 1 segundo
                 _tooltipTimer.Tick += (s, e) =>
@@ -104,6 +99,11 @@ namespace ThGameMode.Screens
                 _animationTimer = new System.Windows.Forms.Timer();
                 _animationTimer.Interval = 500; // 0.5s
                 _animationTimer.Tick += AnimationTick;
+
+                // Inicia monitor automaticamente depois que os timers e o tray
+                // já estão prontos para refletir o estado inicial.
+                StartMonitor();
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
             }
             catch (Exception ex)
             {
@@ -116,11 +116,14 @@ namespace ThGameMode.Screens
         #region Tray (NotifyIcon)
         private void InitializeTray()
         {
-            // Carrega ícones (coloque eles na mesma pasta do EXE)
-            _iconEconomia = new Icon("icon_economia.ico");
-            _iconAltoDesempenho = new Icon("icon_alto_desempenho.ico");
-            _iconAltoGlow = new Icon("icon_alto_glow.ico");
-            _iconPadrao = new Icon("icon_padrao.ico");
+            // Carrega ícones a partir da pasta do executável para funcionar
+            // mesmo quando o app é iniciado por atalho ou startup do Windows.
+            _iconEconomia = LoadIconFromAppDirectory("icon_economia.ico");
+            _iconAltoDesempenho = LoadIconFromAppDirectory("icon_alto_desempenho.ico");
+            _iconAltoGlow = LoadIconFromAppDirectory("icon_alto_glow.ico");
+            _iconPadrao = LoadIconFromAppDirectory("icon_padrao.ico");
+
+            Icon = _iconPadrao;
 
             _trayMenu = new ContextMenuStrip();
             _trayMenu.Items.Add("Ativar detecção", null, (s, e) => StartMonitor());
@@ -143,7 +146,7 @@ namespace ThGameMode.Screens
 
             _trayIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Application, // substitua pelo seu ícone
+                Icon = _iconPadrao,
                 Text = "ThGameMode — Aguardando...",
                 ContextMenuStrip = _trayMenu,
                 Visible = true
@@ -152,6 +155,16 @@ namespace ThGameMode.Screens
 
            
 
+        }
+
+        private static Icon LoadIconFromAppDirectory(string fileName)
+        {
+            string iconPath = Path.Combine(AppContext.BaseDirectory, fileName);
+
+            if (!File.Exists(iconPath))
+                throw new FileNotFoundException($"Ícone não encontrado: {iconPath}", iconPath);
+
+            return new Icon(iconPath);
         }
 
         private void ShowWindow()
@@ -229,12 +242,12 @@ namespace ThGameMode.Screens
                 _trayIcon.Text = "ThGameMode — Alto desempenho ativo";
 
                 // inicia animação
-                _animationTimer.Start();
+                _animationTimer?.Start();
             }
             else
             {
                 // para animação
-                _animationTimer.Stop();
+                _animationTimer?.Stop();
 
                 _trayIcon.Icon = _iconEconomia;
                 _trayIcon.Text = "ThGameMode — Economia de energia ativa";
@@ -549,6 +562,8 @@ namespace ThGameMode.Screens
 
             try
             {
+                ApplyInitialTrayStateAsync().GetAwaiter().GetResult();
+
                 _ctsMonitor = new CancellationTokenSource();
                 _monitorActive = true;
                 _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
@@ -600,37 +615,7 @@ namespace ThGameMode.Screens
             {
                 try
                 {
-                    LoadConfig();
-
-                    bool itemRodando = false;
-
-                    foreach (var item in _config.ListServices)
-                    {
-                        if (string.IsNullOrWhiteSpace(item)) continue;
-
-                        bool rodando = await IsItemRunningAsync(item);
-                        if (rodando)
-                        {
-                            AppLogger.Write(AppLogger.LogLevel.Info, $"Item detectado em execução: {item}");
-                            itemRodando = true;
-                            break;
-                        }
-                    }
-
-                    if (itemRodando && !_modoAltoAtivo)
-                    {
-                        TrocarPlano(_config.PowerPlanOpenApp);
-                        _modoAltoAtivo = true;
-                        _trayIcon!.Text = "ThGameMode — Alto desempenho ativo";
-                        UpdateTrayStatus(true);
-                    }
-                    else if (!itemRodando && _modoAltoAtivo)
-                    {
-                        TrocarPlano(_config.PowerPlanClosedApp);
-                        _modoAltoAtivo = false;
-                        _trayIcon!.Text = "ThGameMode — Economia ativa";
-                        UpdateTrayStatus(false);
-                    }
+                    await EvaluateAndApplyModeAsync(forceVisualUpdate: false);
 
                     AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor verificação concluída. Estado atual: {(_modoAltoAtivo ? "Alto desempenho" : "Economia")}");
                 }
@@ -688,6 +673,54 @@ namespace ThGameMode.Screens
             catch { }
 
             return false;
+        }
+
+        private async Task ApplyInitialTrayStateAsync()
+        {
+            await EvaluateAndApplyModeAsync(forceVisualUpdate: true);
+        }
+
+        private async Task EvaluateAndApplyModeAsync(bool forceVisualUpdate)
+        {
+            LoadConfig();
+
+            bool itemRodando = false;
+            string processoDetectado = string.Empty;
+
+            foreach (var item in _config.ListServices)
+            {
+                if (string.IsNullOrWhiteSpace(item)) continue;
+
+                bool rodando = await IsItemRunningAsync(item);
+                if (rodando)
+                {
+                    AppLogger.Write(AppLogger.LogLevel.Info, $"Item detectado em execução: {item}");
+                    itemRodando = true;
+                    processoDetectado = item;
+                    break;
+                }
+            }
+
+            if (itemRodando)
+            {
+                if (!_modoAltoAtivo)
+                    TrocarPlano(_config.PowerPlanOpenApp);
+
+                _modoAltoAtivo = true;
+
+                if (forceVisualUpdate || _trayIcon?.Icon != _iconAltoDesempenho)
+                    UpdateTrayStatus(true, processoDetectado);
+
+                return;
+            }
+
+            if (_modoAltoAtivo)
+                TrocarPlano(_config.PowerPlanClosedApp);
+
+            _modoAltoAtivo = false;
+
+            if (forceVisualUpdate || _trayIcon?.Icon != _iconEconomia)
+                UpdateTrayStatus(false);
         }
         #endregion
 
