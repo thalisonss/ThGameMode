@@ -8,7 +8,6 @@ using System.Linq;
 using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
@@ -135,7 +134,7 @@ namespace ThGameMode.Screens
 
             _trayIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Application, // substitua pelo seu ícone
+                Icon = _iconPadrao,
                 Text = "ThGameMode — Aguardando...",
                 ContextMenuStrip = _trayMenu,
                 Visible = true
@@ -694,6 +693,8 @@ namespace ThGameMode.Screens
 
             try
             {
+                ApplyInitialTrayStateAsync().GetAwaiter().GetResult();
+
                 _ctsMonitor = new CancellationTokenSource();
                 EvaluateMonitorStateAsync(_ctsMonitor.Token).GetAwaiter().GetResult();
                 _monitorActive = true;
