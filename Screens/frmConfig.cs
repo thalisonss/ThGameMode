@@ -24,6 +24,7 @@ namespace ThGameMode.Screens
         // Itens disponíveis e adicionados
         private List<string> _itemsAvailable = new();
         private List<string> _itemsAdded = new();
+        private readonly Dictionary<string, string> _itemDisplayNameCache = new(StringComparer.OrdinalIgnoreCase);
 
         // Monitor background
         private CancellationTokenSource _ctsMonitor;
@@ -35,7 +36,6 @@ namespace ThGameMode.Screens
         private NotifyIcon _trayIcon;
         private Icon _iconEconomia;
         private Icon _iconAltoDesempenho;
-        private Icon _iconAltoGlow;
         private Icon _iconPadrao;
         private ContextMenuStrip _trayMenu;
         private bool _quitRequested = false;
@@ -49,9 +49,6 @@ namespace ThGameMode.Screens
         private DateTime _ultimaMudanca = DateTime.Now;
         private System.Windows.Forms.Timer _tooltipTimer;
 
-        // Timer de animação do ícone (opcional)
-        private System.Windows.Forms.Timer _animationTimer;
-        private bool _animationState = false;
         private bool _isHighPerformance = false;
 
 
@@ -84,14 +81,6 @@ namespace ThGameMode.Screens
                 // Carrega config (se existir) e popula UI
                 LoadConfig();
 
-                // Carrega serviços/processos em execução para popular grid
-                LoadAvailableItems();
-                AtualizaRefresh();
-
-                // Inicia monitor automaticamente (modo padrão ligado)
-                StartMonitor();
-                AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
-
                 _tooltipTimer = new System.Windows.Forms.Timer();
                 _tooltipTimer.Interval = 1000; // 1 segundo
                 _tooltipTimer.Tick += (s, e) =>
@@ -101,9 +90,13 @@ namespace ThGameMode.Screens
                 };
                 _tooltipTimer.Start();
 
-                _animationTimer = new System.Windows.Forms.Timer();
-                _animationTimer.Interval = 500; // 0.5s
-                _animationTimer.Tick += AnimationTick;
+                // Carrega serviços/processos em execução para popular grid
+                LoadAvailableItems();
+                AtualizaRefresh();
+
+                // Inicia monitor automaticamente (modo padrão ligado)
+                StartMonitor();
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
             }
             catch (Exception ex)
             {
@@ -116,11 +109,10 @@ namespace ThGameMode.Screens
         #region Tray (NotifyIcon)
         private void InitializeTray()
         {
-            // Carrega ícones (coloque eles na mesma pasta do EXE)
-            _iconEconomia = new Icon("icon_economia.ico");
-            _iconAltoDesempenho = new Icon("icon_alto_desempenho.ico");
-            _iconAltoGlow = new Icon("icon_alto_glow.ico");
-            _iconPadrao = new Icon("icon_padrao.ico");
+            // Carrega ícones a partir da pasta do executável.
+            _iconEconomia = LoadIconFromAppDirectory("icon_economia.ico");
+            _iconAltoDesempenho = LoadIconFromAppDirectory("icon_alto_desempenho.ico");
+            _iconPadrao = LoadIconFromAppDirectory("icon_padrao.ico");
 
             _trayMenu = new ContextMenuStrip();
             _trayMenu.Items.Add("Ativar detecção", null, (s, e) => StartMonitor());
@@ -152,6 +144,15 @@ namespace ThGameMode.Screens
 
            
 
+        }
+
+        private static Icon LoadIconFromAppDirectory(string iconFileName)
+        {
+            string iconPath = Path.Combine(AppContext.BaseDirectory, iconFileName);
+            if (!File.Exists(iconPath))
+                throw new FileNotFoundException($"Could not find icon file '{iconPath}'.", iconPath);
+
+            return new Icon(iconPath);
         }
 
         private void ShowWindow()
@@ -227,15 +228,9 @@ namespace ThGameMode.Screens
             {
                 _trayIcon.Icon = _iconAltoDesempenho;
                 _trayIcon.Text = "ThGameMode — Alto desempenho ativo";
-
-                // inicia animação
-                _animationTimer.Start();
             }
             else
             {
-                // para animação
-                _animationTimer.Stop();
-
                 _trayIcon.Icon = _iconEconomia;
                 _trayIcon.Text = "ThGameMode — Economia de energia ativa";
             }
@@ -244,6 +239,25 @@ namespace ThGameMode.Screens
             _modoAtivadoEm = DateTime.Now;
 
             // atualiza tooltip completo
+            UpdateTrayTooltip(altoDesempenhoAtivo);
+        }
+
+        private void ApplyTrayVisualState(bool altoDesempenhoAtivo)
+        {
+            if (_trayIcon == null)
+                return;
+
+            if (altoDesempenhoAtivo)
+            {
+                _trayIcon.Icon = _iconAltoDesempenho;
+                _trayIcon.Text = "ThGameMode — Alto desempenho ativo";
+            }
+            else
+            {
+                _trayIcon.Icon = _iconEconomia;
+                _trayIcon.Text = "ThGameMode — Economia de energia ativa";
+            }
+
             UpdateTrayTooltip(altoDesempenhoAtivo);
         }
 
@@ -266,16 +280,6 @@ namespace ThGameMode.Screens
                 ? tooltip.Substring(0, 63)
                 : tooltip;
         }
-
-        private void AnimationTick(object sender, EventArgs e)
-        {
-            if (!_modoAltoAtivo) return;
-
-            _animationState = !_animationState;
-
-            _trayIcon.Icon = _animationState ? _iconAltoGlow : _iconAltoDesempenho;
-        }
-
 
         #endregion
 
@@ -360,8 +364,12 @@ namespace ThGameMode.Screens
 
             foreach (var item in _itemsAdded)
             {
-                if (item.ToLower().Contains(filtro))
-                    dgvListServicesAdded.Rows.Add(item);
+                string displayName = GetItemDisplayName(item);
+                if (displayName.ToLower().Contains(filtro))
+                {
+                    int rowIndex = dgvListServicesAdded.Rows.Add(displayName);
+                    dgvListServicesAdded.Rows[rowIndex].Tag = item;
+                }
             }
         }
 
@@ -374,7 +382,10 @@ namespace ThGameMode.Screens
             foreach (var item in _itemsAvailable)
             {
                 if (!adicionados.Contains(item))
-                    dgvListServices.Rows.Add(item);
+                {
+                    int rowIndex = dgvListServices.Rows.Add(GetItemDisplayName(item));
+                    dgvListServices.Rows[rowIndex].Tag = item;
+                }
             }
         }
 
@@ -387,8 +398,12 @@ namespace ThGameMode.Screens
 
             foreach (var item in _itemsAvailable)
             {
-                if (!adicionados.Contains(item) && item.ToLower().Contains(filtro))
-                    dgvListServices.Rows.Add(item);
+                string displayName = GetItemDisplayName(item);
+                if (!adicionados.Contains(item) && displayName.ToLower().Contains(filtro))
+                {
+                    int rowIndex = dgvListServices.Rows.Add(displayName);
+                    dgvListServices.Rows[rowIndex].Tag = item;
+                }
             }
         }
 
@@ -401,7 +416,8 @@ namespace ThGameMode.Screens
         {
             if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
 
-            var item = dgvListServices.Rows[e.RowIndex].Cells[0].Value?.ToString();
+            var item = dgvListServices.Rows[e.RowIndex].Tag?.ToString()
+                ?? dgvListServices.Rows[e.RowIndex].Cells[0].Value?.ToString();
             if (string.IsNullOrEmpty(item)) return;
 
             if (!_itemsAdded.Contains(item, StringComparer.OrdinalIgnoreCase))
@@ -409,7 +425,7 @@ namespace ThGameMode.Screens
                 _itemsAdded.Add(item);
                 AtualizarGridServicesAdded();
                 dgvListServices.Rows.RemoveAt(e.RowIndex);
-                SaveConfigAndRestartMonitor();
+                SaveConfigAndRefreshMonitorState();
             }
         }
 
@@ -417,15 +433,14 @@ namespace ThGameMode.Screens
         {
             if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
 
-            var item = dgvListServicesAdded.Rows[e.RowIndex].Cells[0].Value?.ToString();
+            var item = dgvListServicesAdded.Rows[e.RowIndex].Tag?.ToString()
+                ?? dgvListServicesAdded.Rows[e.RowIndex].Cells[0].Value?.ToString();
             if (string.IsNullOrEmpty(item)) return;
 
             _itemsAdded.RemoveAll(x => string.Equals(x, item, StringComparison.OrdinalIgnoreCase));
             AtualizarGridServicesAdded();
-
-            LoadAvailableItems();
             AtualizaRefresh();
-            SaveConfigAndRestartMonitor();
+            SaveConfigAndRefreshMonitorState();
         }
         #endregion
 
@@ -433,6 +448,7 @@ namespace ThGameMode.Screens
         private void LoadAvailableItems()
         {
             _itemsAvailable.Clear();
+            _itemDisplayNameCache.Clear();
 
             try
             {
@@ -453,6 +469,135 @@ namespace ThGameMode.Screens
             catch { }
 
             _itemsAvailable = _itemsAvailable.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n).ToList();
+            PopulateDisplayNameCache();
+        }
+
+        private string GetItemDisplayName(string item)
+        {
+            if (string.IsNullOrWhiteSpace(item))
+                return string.Empty;
+
+            if (_itemDisplayNameCache.TryGetValue(item, out var cachedDisplayName))
+                return cachedDisplayName;
+
+            try
+            {
+                using var sc = new ServiceController(item);
+                _ = sc.Status;
+                return _itemDisplayNameCache[item] = item;
+            }
+            catch { }
+
+            string procName = item;
+            if (item.Contains("|"))
+            {
+                var parts = item.Split('|', 2);
+                procName = parts[0];
+            }
+
+            try
+            {
+                var processo = Process.GetProcessesByName(procName).FirstOrDefault();
+                if (processo != null)
+                {
+                    string friendlyName = TryGetFriendlyProcessName(processo);
+                    if (!string.IsNullOrWhiteSpace(friendlyName) &&
+                        !string.Equals(friendlyName, procName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return _itemDisplayNameCache[item] = $"{friendlyName} - {procName}";
+                    }
+                }
+            }
+            catch { }
+
+            return _itemDisplayNameCache[item] = procName;
+        }
+
+        private void PopulateDisplayNameCache()
+        {
+            var processFriendlyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                foreach (var process in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (!processFriendlyNames.ContainsKey(process.ProcessName))
+                            processFriendlyNames[process.ProcessName] = TryGetFriendlyProcessName(process);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            foreach (var item in _itemsAvailable.Concat(_itemsAdded).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(item) || _itemDisplayNameCache.ContainsKey(item))
+                    continue;
+
+                try
+                {
+                    using var sc = new ServiceController(item);
+                    _ = sc.Status;
+                    _itemDisplayNameCache[item] = item;
+                    continue;
+                }
+                catch { }
+
+                string procName = item;
+                if (item.Contains("|"))
+                {
+                    var parts = item.Split('|', 2);
+                    procName = parts[0];
+                }
+
+                if (processFriendlyNames.TryGetValue(procName, out var friendlyName) &&
+                    !string.IsNullOrWhiteSpace(friendlyName) &&
+                    !string.Equals(friendlyName, procName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _itemDisplayNameCache[item] = $"{friendlyName} - {procName}";
+                }
+                else
+                {
+                    _itemDisplayNameCache[item] = procName;
+                }
+            }
+        }
+
+        private string TryGetFriendlyProcessName(Process process)
+        {
+            try
+            {
+                string fileName = process.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(fileName) && File.Exists(fileName))
+                {
+                    var versionInfo = FileVersionInfo.GetVersionInfo(fileName);
+
+                    if (!string.IsNullOrWhiteSpace(versionInfo.FileDescription))
+                        return versionInfo.FileDescription.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(versionInfo.ProductName))
+                        return versionInfo.ProductName.Trim();
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(process.MainWindowTitle))
+                    return process.MainWindowTitle.Trim();
+            }
+            catch { }
+
+            try
+            {
+                return process.ProcessName;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
         #endregion
 
@@ -550,6 +695,7 @@ namespace ThGameMode.Screens
             try
             {
                 _ctsMonitor = new CancellationTokenSource();
+                EvaluateMonitorStateAsync(_ctsMonitor.Token).GetAwaiter().GetResult();
                 _monitorActive = true;
                 _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
                 _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção ativada", ToolTipIcon.Info);
@@ -586,9 +732,13 @@ namespace ThGameMode.Screens
             {
                 _monitorActive = false;
                 _modoAltoAtivo = false;
-                _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção desativada", ToolTipIcon.Info);
-                _trayIcon.Icon = _iconPadrao;
-                _trayIcon.Text = "ThGameMode — Desativado";
+
+                if (!_quitRequested && _trayIcon != null)
+                {
+                    _trayIcon.ShowBalloonTip(1000, "ThGameMode", "Detecção desativada", ToolTipIcon.Info);
+                    _trayIcon.Icon = _iconPadrao;
+                    _trayIcon.Text = "ThGameMode — Desativado";
+                }
             }
         }
 
@@ -600,39 +750,7 @@ namespace ThGameMode.Screens
             {
                 try
                 {
-                    LoadConfig();
-
-                    bool itemRodando = false;
-
-                    foreach (var item in _config.ListServices)
-                    {
-                        if (string.IsNullOrWhiteSpace(item)) continue;
-
-                        bool rodando = await IsItemRunningAsync(item);
-                        if (rodando)
-                        {
-                            AppLogger.Write(AppLogger.LogLevel.Info, $"Item detectado em execução: {item}");
-                            itemRodando = true;
-                            break;
-                        }
-                    }
-
-                    if (itemRodando && !_modoAltoAtivo)
-                    {
-                        TrocarPlano(_config.PowerPlanOpenApp);
-                        _modoAltoAtivo = true;
-                        _trayIcon!.Text = "ThGameMode — Alto desempenho ativo";
-                        UpdateTrayStatus(true);
-                    }
-                    else if (!itemRodando && _modoAltoAtivo)
-                    {
-                        TrocarPlano(_config.PowerPlanClosedApp);
-                        _modoAltoAtivo = false;
-                        _trayIcon!.Text = "ThGameMode — Economia ativa";
-                        UpdateTrayStatus(false);
-                    }
-
-                    AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor verificação concluída. Estado atual: {(_modoAltoAtivo ? "Alto desempenho" : "Economia")}");
+                    await EvaluateMonitorStateAsync(token);
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
@@ -689,6 +807,50 @@ namespace ThGameMode.Screens
 
             return false;
         }
+
+        private async Task EvaluateMonitorStateAsync(CancellationToken token)
+        {
+            LoadConfig();
+
+            bool itemRodando = false;
+
+            foreach (var item in _config.ListServices)
+            {
+                token.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(item)) continue;
+
+                bool rodando = await IsItemRunningAsync(item);
+                if (rodando)
+                {
+                    AppLogger.Write(AppLogger.LogLevel.Info, $"Item detectado em execução: {item}");
+                    itemRodando = true;
+                    break;
+                }
+            }
+
+            if (itemRodando && !_modoAltoAtivo)
+            {
+                TrocarPlano(_config.PowerPlanOpenApp);
+                _modoAltoAtivo = true;
+                UpdateTrayStatus(true);
+            }
+            else if (!itemRodando && _modoAltoAtivo)
+            {
+                TrocarPlano(_config.PowerPlanClosedApp);
+                _modoAltoAtivo = false;
+                UpdateTrayStatus(false);
+            }
+            else if (itemRodando)
+            {
+                ApplyTrayVisualState(true);
+            }
+            else
+            {
+                ApplyTrayVisualState(false);
+            }
+
+            AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor verificação concluída. Estado atual: {(_modoAltoAtivo ? "Alto desempenho" : "Economia")}");
+        }
         #endregion
 
         #region Save & Restart Monitor
@@ -704,6 +866,14 @@ namespace ThGameMode.Screens
             LoadAvailableItems();
             AtualizaRefresh();
             StartMonitor();
+        }
+
+        private void SaveConfigAndRefreshMonitorState()
+        {
+            SaveConfig();
+
+            if (_monitorActive)
+                EvaluateMonitorStateAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
         #endregion
 
