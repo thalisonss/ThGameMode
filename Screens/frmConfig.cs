@@ -38,6 +38,7 @@ namespace ThGameMode.Screens
         private Icon _iconPadrao;
         private ContextMenuStrip _trayMenu;
         private bool _quitRequested = false;
+        private readonly bool _startMinimized;
 
         // Config atual em memória
         private Configuracao _config = new();
@@ -52,8 +53,9 @@ namespace ThGameMode.Screens
 
 
 
-        public frmConfig()
+        public frmConfig(bool startMinimized = false)
         {
+            _startMinimized = startMinimized;
             InitializeComponent();
             InitializeTray();
         }
@@ -79,6 +81,7 @@ namespace ThGameMode.Screens
 
                 // Carrega config (se existir) e popula UI
                 LoadConfig();
+                EnsureStartupUsesMinimizedArgument();
 
                 _tooltipTimer = new System.Windows.Forms.Timer();
                 _tooltipTimer.Interval = 1000; // 1 segundo
@@ -96,6 +99,11 @@ namespace ThGameMode.Screens
                 // Inicia monitor automaticamente (modo padrão ligado)
                 StartMonitor();
                 AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
+
+                if (_startMinimized)
+                {
+                    BeginInvoke(new Action(HideToTray));
+                }
             }
             catch (Exception ex)
             {
@@ -158,7 +166,16 @@ namespace ThGameMode.Screens
         {
             this.WindowState = FormWindowState.Normal;
             this.Show();
+            this.ShowInTaskbar = true;
             this.BringToFront();
+            this.Activate();
+        }
+
+        private void HideToTray()
+        {
+            this.WindowState = FormWindowState.Minimized;
+            this.ShowInTaskbar = false;
+            this.Hide();
         }
 
         protected override void OnResize(EventArgs e)
@@ -166,7 +183,7 @@ namespace ThGameMode.Screens
             base.OnResize(e);
             if (this.WindowState == FormWindowState.Minimized)
             {
-                this.Hide(); // esconde o form, mantém tray
+                HideToTray(); // esconde o form, mantém tray
             }
         }
 
@@ -198,10 +215,29 @@ namespace ThGameMode.Screens
             return rk?.GetValue("ThGameMode") != null;
         }
 
+        private static string GetStartupCommand()
+        {
+            return $"\"{Application.ExecutablePath}\" --minimized";
+        }
+
+        private void EnsureStartupUsesMinimizedArgument()
+        {
+            using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+            var currentValue = rk?.GetValue("ThGameMode") as string;
+
+            if (string.IsNullOrWhiteSpace(currentValue))
+                return;
+
+            if (currentValue.IndexOf("--minimized", StringComparison.OrdinalIgnoreCase) >= 0)
+                return;
+
+            rk.SetValue("ThGameMode", GetStartupCommand());
+        }
+
         private void EnableStartup()
         {
             using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-            rk.SetValue("ThGameMode", Application.ExecutablePath);
+            rk.SetValue("ThGameMode", GetStartupCommand());
         }
 
         private void DisableStartup()
