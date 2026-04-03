@@ -5,12 +5,14 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Reflection;
 using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Threading;
 using ThGameMode.Utils;
 
 namespace ThGameMode.Screens
@@ -37,6 +39,7 @@ namespace ThGameMode.Screens
         private Icon _iconAltoDesempenho;
         private Icon _iconPadrao;
         private ContextMenuStrip _trayMenu;
+        private ToolStripMenuItem? _downloadUpdateMenuItem;
         private bool _quitRequested = false;
         private readonly bool _startMinimized;
 
@@ -50,6 +53,9 @@ namespace ThGameMode.Screens
         private System.Windows.Forms.Timer _tooltipTimer;
 
         private bool _isHighPerformance = false;
+        private readonly GitHubReleaseChecker _releaseChecker = new();
+        private string? _latestReleaseUrl;
+        private bool _updateNotificationPendingOpen;
 
 
 
@@ -99,6 +105,7 @@ namespace ThGameMode.Screens
                 // Inicia monitor automaticamente (modo padrão ligado)
                 StartMonitor();
                 AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
+                _ = CheckForUpdatesAsync(false);
 
                 if (_startMinimized)
                 {
@@ -126,6 +133,14 @@ namespace ThGameMode.Screens
             _trayMenu.Items.Add("Desativar detecção", null, (s, e) => StopMonitor());
             _trayMenu.Items.Add(new ToolStripSeparator());
             _trayMenu.Items.Add("Abrir configurações", null, (s, e) => ShowWindow());
+            _trayMenu.Items.Add("Verificar atualizações", null, async (s, e) => await CheckForUpdatesAsync(true));
+
+            _downloadUpdateMenuItem = new ToolStripMenuItem("Baixar nova versão")
+            {
+                Enabled = false
+            };
+            _downloadUpdateMenuItem.Click += (s, e) => OpenLatestReleasePage();
+            _trayMenu.Items.Add(_downloadUpdateMenuItem);
 
             var startupItem = new ToolStripMenuItem("Iniciar com Windows");
             startupItem.Checked = IsStartupEnabled();
@@ -148,6 +163,11 @@ namespace ThGameMode.Screens
                 Visible = true
             };
             _trayIcon.DoubleClick += (s, e) => ShowWindow();
+            _trayIcon.BalloonTipClicked += (s, e) =>
+            {
+                if (_updateNotificationPendingOpen)
+                    OpenLatestReleasePage();
+            };
 
            
 
@@ -316,6 +336,144 @@ namespace ThGameMode.Screens
                 : tooltip;
         }
 
+        #endregion
+
+        #region Updates
+        private async Task CheckForUpdatesAsync(bool manualCheck)
+        {
+            try
+            {
+                Version currentVersion = GetCurrentVersion();
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Verificando atualização no GitHub. Versão atual: {currentVersion}");
+
+                var result = await _releaseChecker.CheckForUpdateAsync(currentVersion);
+
+                if (result.IsUpdateAvailable && !string.IsNullOrWhiteSpace(result.ReleaseUrl))
+                {
+                    _latestReleaseUrl = result.ReleaseUrl;
+                    _updateNotificationPendingOpen = true;
+
+                    if (_downloadUpdateMenuItem != null)
+                        _downloadUpdateMenuItem.Enabled = true;
+
+                    AppLogger.Write(AppLogger.LogLevel.Info, $"Nova versão encontrada: {result.LatestTag}");
+                    _trayIcon?.ShowBalloonTip(
+                        4000,
+                        "Atualização disponível",
+                        $"Nova versão encontrada ({result.LatestTag}). Clique para abrir a release no GitHub.",
+                        ToolTipIcon.Info);
+
+                    if (!_startMinimized && Visible && WindowState != FormWindowState.Minimized)
+                    {
+                        var answer = MessageBox.Show(
+                            $"Uma nova versão do ThGameMode está disponível no GitHub.\n\nVersão atual: {currentVersion}\nNova versão: {result.LatestTag}\n\nDeseja abrir a página da release agora?",
+                            "Atualização disponível",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Information);
+
+                        if (answer == DialogResult.Yes)
+                            OpenLatestReleasePage();
+                    }
+
+                    return;
+                }
+
+                _updateNotificationPendingOpen = false;
+                if (_downloadUpdateMenuItem != null)
+                    _downloadUpdateMenuItem.Enabled = false;
+
+                if (!string.IsNullOrWhiteSpace(result.FailureReason))
+                {
+                    AppLogger.Write(AppLogger.LogLevel.Warning, "Não foi possível validar a release mais recente: " + result.FailureReason);
+
+                    if (manualCheck)
+                    {
+                        MessageBox.Show(
+                            result.FailureReason,
+                            "Falha ao verificar atualizações",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                    }
+
+                    return;
+                }
+
+                if (manualCheck)
+                {
+                    MessageBox.Show(
+                        $"Você já está na versão mais recente ({currentVersion}).",
+                        "Sem atualizações",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Warning, "Falha ao consultar atualização no GitHub: " + ex.Message);
+                if (manualCheck)
+                {
+                    MessageBox.Show(
+                        "Não foi possível verificar atualizações no GitHub no momento.",
+                        "Falha ao verificar atualizações",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+            }
+            catch (TaskCanceledException ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Warning, "Tempo esgotado ao verificar atualização: " + ex.Message);
+                if (manualCheck)
+                {
+                    MessageBox.Show(
+                        "A verificação de atualização expirou. Tente novamente em instantes.",
+                        "Falha ao verificar atualizações",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro inesperado ao verificar atualização: " + ex.Message);
+                if (manualCheck)
+                {
+                    MessageBox.Show(
+                        "Ocorreu um erro inesperado ao verificar atualizações.",
+                        "Falha ao verificar atualizações",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+            }
+        }
+
+        private static Version GetCurrentVersion()
+        {
+            return Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0, 0);
+        }
+
+        private void OpenLatestReleasePage()
+        {
+            if (string.IsNullOrWhiteSpace(_latestReleaseUrl))
+                return;
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = _latestReleaseUrl,
+                    UseShellExecute = true
+                });
+                _updateNotificationPendingOpen = false;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao abrir página da release: " + ex.Message);
+                MessageBox.Show(
+                    "Não foi possível abrir a página da nova versão.",
+                    "Erro ao abrir release",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
         #endregion
 
         #region Config JSON I/O
