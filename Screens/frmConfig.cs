@@ -693,8 +693,6 @@ namespace ThGameMode.Screens
 
             try
             {
-                ApplyInitialTrayStateAsync().GetAwaiter().GetResult();
-
                 _ctsMonitor = new CancellationTokenSource();
                 EvaluateMonitorStateAsync(_ctsMonitor.Token).GetAwaiter().GetResult();
                 _monitorActive = true;
