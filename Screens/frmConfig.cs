@@ -8,9 +8,10 @@ using System.Linq;
 using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Threading;
+using ThGameMode.Utils;
 
 namespace ThGameMode.Screens
 {
@@ -22,6 +23,7 @@ namespace ThGameMode.Screens
         // Itens disponíveis e adicionados
         private List<string> _itemsAvailable = new();
         private List<string> _itemsAdded = new();
+        private readonly Dictionary<string, string> _itemDisplayNameCache = new(StringComparer.OrdinalIgnoreCase);
 
         // Monitor background
         private CancellationTokenSource _ctsMonitor;
@@ -31,11 +33,24 @@ namespace ThGameMode.Screens
 
         // Tray
         private NotifyIcon _trayIcon;
+        private Icon _iconEconomia;
+        private Icon _iconAltoDesempenho;
+        private Icon _iconPadrao;
         private ContextMenuStrip _trayMenu;
         private bool _quitRequested = false;
 
         // Config atual em memória
         private Configuracao _config = new();
+
+        // Estado do tray
+        private DateTime _modoAtivadoEm = DateTime.Now;
+        private string _ultimoProcessoDetectado = "Nenhum";
+        private DateTime _ultimaMudanca = DateTime.Now;
+        private System.Windows.Forms.Timer _tooltipTimer;
+
+        private bool _isHighPerformance = false;
+
+
 
         public frmConfig()
         {
@@ -46,31 +61,58 @@ namespace ThGameMode.Screens
         #region Form Load / Init
         private void frmConfig_Load(object sender, EventArgs e)
         {
-            // Carrega planos de energia para os combo boxes
-            var planos = GetEnergyPlans();
-            cboPowerPlanOpenApp.DataSource = planos.ToList();
-            cboPowerPlanOpenApp.DisplayMember = "Name";
-            cboPowerPlanOpenApp.ValueMember = "Guid";
+            try
+            {
+                // Carrega planos de energia para os combo boxes
+                AppLogger.Write(AppLogger.LogLevel.Info, "Inicializando interface e carregando configurações...");
 
-            cboPowerPlanClosedApp.DataSource = planos.ToList();
-            cboPowerPlanClosedApp.DisplayMember = "Name";
-            cboPowerPlanClosedApp.ValueMember = "Guid";
+                var planos = GetEnergyPlans();
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Planos de energia carregados: {planos.Count()} encontrados.");
 
-            // Carrega config (se existir) e popula UI
-            LoadConfig();
+                cboPowerPlanOpenApp.DataSource = planos.ToList();
+                cboPowerPlanOpenApp.DisplayMember = "Name";
+                cboPowerPlanOpenApp.ValueMember = "Guid";
 
-            // Carrega serviços/processos em execução para popular grid
-            LoadAvailableItems();
-            AtualizaRefresh();
+                cboPowerPlanClosedApp.DataSource = planos.ToList();
+                cboPowerPlanClosedApp.DisplayMember = "Name";
+                cboPowerPlanClosedApp.ValueMember = "Guid";
 
-            // Inicia monitor automaticamente (modo padrão ligado)
-            StartMonitor();
+                // Carrega config (se existir) e popula UI
+                LoadConfig();
+
+                _tooltipTimer = new System.Windows.Forms.Timer();
+                _tooltipTimer.Interval = 1000; // 1 segundo
+                _tooltipTimer.Tick += (s, e) =>
+                {
+                    // Atualiza tooltip a cada 1s sem mudar estado
+                    UpdateTrayTooltip(_modoAltoAtivo);
+                };
+                _tooltipTimer.Start();
+
+                // Carrega serviços/processos em execução para popular grid
+                LoadAvailableItems();
+                AtualizaRefresh();
+
+                // Inicia monitor automaticamente (modo padrão ligado)
+                StartMonitor();
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro na inicialização do formulário frmConfig: " + ex.Message);
+                MessageBox.Show("Erro ao iniciar o aplicativo: " + ex.Message);
+            }
         }
         #endregion
 
         #region Tray (NotifyIcon)
         private void InitializeTray()
         {
+            // Carrega ícones a partir da pasta do executável.
+            _iconEconomia = LoadIconFromAppDirectory("icon_economia.ico");
+            _iconAltoDesempenho = LoadIconFromAppDirectory("icon_alto_desempenho.ico");
+            _iconPadrao = LoadIconFromAppDirectory("icon_padrao.ico");
+
             _trayMenu = new ContextMenuStrip();
             _trayMenu.Items.Add("Ativar detecção", null, (s, e) => StartMonitor());
             _trayMenu.Items.Add("Desativar detecção", null, (s, e) => StopMonitor());
@@ -92,12 +134,24 @@ namespace ThGameMode.Screens
 
             _trayIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Application, // substitua pelo seu ícone
-                Text = "ThGameMode",
+                Icon = _iconPadrao,
+                Text = "ThGameMode — Aguardando...",
                 ContextMenuStrip = _trayMenu,
                 Visible = true
             };
             _trayIcon.DoubleClick += (s, e) => ShowWindow();
+
+           
+
+        }
+
+        private static Icon LoadIconFromAppDirectory(string iconFileName)
+        {
+            string iconPath = Path.Combine(AppContext.BaseDirectory, iconFileName);
+            if (!File.Exists(iconPath))
+                throw new FileNotFoundException($"Could not find icon file '{iconPath}'.", iconPath);
+
+            return new Icon(iconPath);
         }
 
         private void ShowWindow()
@@ -155,6 +209,77 @@ namespace ThGameMode.Screens
             using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
             rk.DeleteValue("ThGameMode", false);
         }
+
+        public void UpdateTrayStatus(bool altoDesempenhoAtivo, string processoDetectado = "")
+        {
+            AppLogger.Write(AppLogger.LogLevel.Info, $"Atualizando tray. Estado: {(altoDesempenhoAtivo ? "Alto desempenho" : "Economia")}, Processo detectado: {processoDetectado}");
+
+            if (!string.IsNullOrWhiteSpace(processoDetectado))
+                _ultimoProcessoDetectado = processoDetectado;
+
+            if (_trayIcon == null)
+                return;
+
+            _ultimaMudanca = DateTime.Now;
+
+            // ícone + texto curto
+            if (altoDesempenhoAtivo)
+            {
+                _trayIcon.Icon = _iconAltoDesempenho;
+                _trayIcon.Text = "ThGameMode — Alto desempenho ativo";
+            }
+            else
+            {
+                _trayIcon.Icon = _iconEconomia;
+                _trayIcon.Text = "ThGameMode — Economia de energia ativa";
+            }
+
+            // reinicia contagem do tempo
+            _modoAtivadoEm = DateTime.Now;
+
+            // atualiza tooltip completo
+            UpdateTrayTooltip(altoDesempenhoAtivo);
+        }
+
+        private void ApplyTrayVisualState(bool altoDesempenhoAtivo)
+        {
+            if (_trayIcon == null)
+                return;
+
+            if (altoDesempenhoAtivo)
+            {
+                _trayIcon.Icon = _iconAltoDesempenho;
+                _trayIcon.Text = "ThGameMode — Alto desempenho ativo";
+            }
+            else
+            {
+                _trayIcon.Icon = _iconEconomia;
+                _trayIcon.Text = "ThGameMode — Economia de energia ativa";
+            }
+
+            UpdateTrayTooltip(altoDesempenhoAtivo);
+        }
+
+        private void UpdateTrayTooltip(bool altoDesempenhoAtivo)
+        {
+            if (_trayIcon == null) return;
+
+            TimeSpan tempo = DateTime.Now - _modoAtivadoEm;
+
+            string modo = altoDesempenhoAtivo ? "Alto desempenho" : "Economia";
+            string tempoFormatado = tempo.ToString(@"hh\:mm\:ss");
+
+            string tooltip =
+                $"Modo atual: {modo}\n" +
+                $"Tempo ativo: {tempoFormatado}\n" +
+                $"Último jogo: {_ultimoProcessoDetectado}\n" +
+                $"Última mudança: {_ultimaMudanca:HH:mm:ss}";
+
+            _trayIcon.Text = tooltip.Length > 63
+                ? tooltip.Substring(0, 63)
+                : tooltip;
+        }
+
         #endregion
 
         #region Config JSON I/O
@@ -162,8 +287,11 @@ namespace ThGameMode.Screens
         {
             try
             {
+                AppLogger.Write(AppLogger.LogLevel.Info, "Carregando configuração do arquivo JSON...");
+
                 if (!File.Exists(_configPath))
                 {
+                    AppLogger.Write(AppLogger.LogLevel.Warning, "Arquivo de configuração não encontrado. Usando valores padrão.");
                     _config = new Configuracao(); // default
                     ApplyConfigToUI();
                     return;
@@ -172,10 +300,14 @@ namespace ThGameMode.Screens
                 string json = File.ReadAllText(_configPath, Encoding.UTF8);
                 _config = JsonSerializer.Deserialize<Configuracao>(json) ?? new Configuracao();
                 _itemsAdded = _config.ListServices ?? new List<string>();
+
+                AppLogger.Write(AppLogger.LogLevel.Info, "Configuração carregada com sucesso.");
+
                 ApplyConfigToUI();
             }
             catch (Exception ex)
             {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao carregar configuração: " + ex.Message);
                 MessageBox.Show("Erro ao carregar configuração: " + ex.Message);
             }
         }
@@ -201,6 +333,8 @@ namespace ThGameMode.Screens
 
         private void SaveConfig()
         {
+            AppLogger.Write(AppLogger.LogLevel.Info, "Salvando configuração no arquivo JSON...");
+
             try
             {
                 _config.CheckInterval = (int)nudCheckInterval.Value;
@@ -210,9 +344,12 @@ namespace ThGameMode.Screens
 
                 string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json, Encoding.UTF8);
+
+                AppLogger.Write(AppLogger.LogLevel.Info, "Configuração salva com sucesso.");
             }
             catch (Exception ex)
             {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao salvar configuração: " + ex.Message);
                 MessageBox.Show("Erro ao salvar configuração: " + ex.Message);
             }
         }
@@ -226,8 +363,12 @@ namespace ThGameMode.Screens
 
             foreach (var item in _itemsAdded)
             {
-                if (item.ToLower().Contains(filtro))
-                    dgvListServicesAdded.Rows.Add(item);
+                string displayName = GetItemDisplayName(item);
+                if (displayName.ToLower().Contains(filtro))
+                {
+                    int rowIndex = dgvListServicesAdded.Rows.Add(displayName);
+                    dgvListServicesAdded.Rows[rowIndex].Tag = item;
+                }
             }
         }
 
@@ -240,7 +381,10 @@ namespace ThGameMode.Screens
             foreach (var item in _itemsAvailable)
             {
                 if (!adicionados.Contains(item))
-                    dgvListServices.Rows.Add(item);
+                {
+                    int rowIndex = dgvListServices.Rows.Add(GetItemDisplayName(item));
+                    dgvListServices.Rows[rowIndex].Tag = item;
+                }
             }
         }
 
@@ -253,8 +397,12 @@ namespace ThGameMode.Screens
 
             foreach (var item in _itemsAvailable)
             {
-                if (!adicionados.Contains(item) && item.ToLower().Contains(filtro))
-                    dgvListServices.Rows.Add(item);
+                string displayName = GetItemDisplayName(item);
+                if (!adicionados.Contains(item) && displayName.ToLower().Contains(filtro))
+                {
+                    int rowIndex = dgvListServices.Rows.Add(displayName);
+                    dgvListServices.Rows[rowIndex].Tag = item;
+                }
             }
         }
 
@@ -267,7 +415,8 @@ namespace ThGameMode.Screens
         {
             if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
 
-            var item = dgvListServices.Rows[e.RowIndex].Cells[0].Value?.ToString();
+            var item = dgvListServices.Rows[e.RowIndex].Tag?.ToString()
+                ?? dgvListServices.Rows[e.RowIndex].Cells[0].Value?.ToString();
             if (string.IsNullOrEmpty(item)) return;
 
             if (!_itemsAdded.Contains(item, StringComparer.OrdinalIgnoreCase))
@@ -275,7 +424,7 @@ namespace ThGameMode.Screens
                 _itemsAdded.Add(item);
                 AtualizarGridServicesAdded();
                 dgvListServices.Rows.RemoveAt(e.RowIndex);
-                SaveConfigAndRestartMonitor();
+                SaveConfigAndRefreshMonitorState();
             }
         }
 
@@ -283,15 +432,14 @@ namespace ThGameMode.Screens
         {
             if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
 
-            var item = dgvListServicesAdded.Rows[e.RowIndex].Cells[0].Value?.ToString();
+            var item = dgvListServicesAdded.Rows[e.RowIndex].Tag?.ToString()
+                ?? dgvListServicesAdded.Rows[e.RowIndex].Cells[0].Value?.ToString();
             if (string.IsNullOrEmpty(item)) return;
 
             _itemsAdded.RemoveAll(x => string.Equals(x, item, StringComparison.OrdinalIgnoreCase));
             AtualizarGridServicesAdded();
-
-            LoadAvailableItems();
             AtualizaRefresh();
-            SaveConfigAndRestartMonitor();
+            SaveConfigAndRefreshMonitorState();
         }
         #endregion
 
@@ -299,6 +447,7 @@ namespace ThGameMode.Screens
         private void LoadAvailableItems()
         {
             _itemsAvailable.Clear();
+            _itemDisplayNameCache.Clear();
 
             try
             {
@@ -319,6 +468,135 @@ namespace ThGameMode.Screens
             catch { }
 
             _itemsAvailable = _itemsAvailable.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n).ToList();
+            PopulateDisplayNameCache();
+        }
+
+        private string GetItemDisplayName(string item)
+        {
+            if (string.IsNullOrWhiteSpace(item))
+                return string.Empty;
+
+            if (_itemDisplayNameCache.TryGetValue(item, out var cachedDisplayName))
+                return cachedDisplayName;
+
+            try
+            {
+                using var sc = new ServiceController(item);
+                _ = sc.Status;
+                return _itemDisplayNameCache[item] = item;
+            }
+            catch { }
+
+            string procName = item;
+            if (item.Contains("|"))
+            {
+                var parts = item.Split('|', 2);
+                procName = parts[0];
+            }
+
+            try
+            {
+                var processo = Process.GetProcessesByName(procName).FirstOrDefault();
+                if (processo != null)
+                {
+                    string friendlyName = TryGetFriendlyProcessName(processo);
+                    if (!string.IsNullOrWhiteSpace(friendlyName) &&
+                        !string.Equals(friendlyName, procName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return _itemDisplayNameCache[item] = $"{friendlyName} - {procName}";
+                    }
+                }
+            }
+            catch { }
+
+            return _itemDisplayNameCache[item] = procName;
+        }
+
+        private void PopulateDisplayNameCache()
+        {
+            var processFriendlyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                foreach (var process in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (!processFriendlyNames.ContainsKey(process.ProcessName))
+                            processFriendlyNames[process.ProcessName] = TryGetFriendlyProcessName(process);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            foreach (var item in _itemsAvailable.Concat(_itemsAdded).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(item) || _itemDisplayNameCache.ContainsKey(item))
+                    continue;
+
+                try
+                {
+                    using var sc = new ServiceController(item);
+                    _ = sc.Status;
+                    _itemDisplayNameCache[item] = item;
+                    continue;
+                }
+                catch { }
+
+                string procName = item;
+                if (item.Contains("|"))
+                {
+                    var parts = item.Split('|', 2);
+                    procName = parts[0];
+                }
+
+                if (processFriendlyNames.TryGetValue(procName, out var friendlyName) &&
+                    !string.IsNullOrWhiteSpace(friendlyName) &&
+                    !string.Equals(friendlyName, procName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _itemDisplayNameCache[item] = $"{friendlyName} - {procName}";
+                }
+                else
+                {
+                    _itemDisplayNameCache[item] = procName;
+                }
+            }
+        }
+
+        private string TryGetFriendlyProcessName(Process process)
+        {
+            try
+            {
+                string fileName = process.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(fileName) && File.Exists(fileName))
+                {
+                    var versionInfo = FileVersionInfo.GetVersionInfo(fileName);
+
+                    if (!string.IsNullOrWhiteSpace(versionInfo.FileDescription))
+                        return versionInfo.FileDescription.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(versionInfo.ProductName))
+                        return versionInfo.ProductName.Trim();
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(process.MainWindowTitle))
+                    return process.MainWindowTitle.Trim();
+            }
+            catch { }
+
+            try
+            {
+                return process.ProcessName;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
         #endregion
 
@@ -389,11 +667,14 @@ namespace ThGameMode.Screens
                         UseShellExecute = false
                     }
                 };
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Trocando plano de energia para GUID: {guid}");
+
                 p.Start();
                 p.WaitForExit();
             }
             catch (Exception ex)
             {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao trocar plano de energia: " + ex.Message);
                 _trayIcon?.ShowBalloonTip(1500, "ThGameMode", $"Erro ao trocar plano: {ex.Message}", ToolTipIcon.Error);
             }
         }
@@ -402,70 +683,78 @@ namespace ThGameMode.Screens
         #region Monitor
         private void StartMonitor()
         {
-            if (_monitorActive) return;
+            if (_monitorActive)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Warning, "Monitor já está ativo. Ignorando StartMonitor.");
+                return;
+            }
 
-            _ctsMonitor = new CancellationTokenSource();
-            _monitorActive = true;
-            _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
-            _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção ativada", ToolTipIcon.Info);
+            AppLogger.Write(AppLogger.LogLevel.Info, "Iniciando monitor de serviços/processos...");
+
+            try
+            {
+                _ctsMonitor = new CancellationTokenSource();
+                EvaluateMonitorStateAsync(_ctsMonitor.Token).GetAwaiter().GetResult();
+                _monitorActive = true;
+                _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
+                _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção ativada", ToolTipIcon.Info);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao carregar configuração antes de iniciar o monitor: " + ex.Message);
+                MessageBox.Show("Erro ao carregar configuração: " + ex.Message);
+            }         
         }
 
         private void StopMonitor()
         {
-            if (!_monitorActive) return;
+            if (!_monitorActive)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Warning, "Monitor não está ativo. Ignorando StopMonitor.");
+                return;
+            }
+
+            AppLogger.Write(AppLogger.LogLevel.Info, "Parando monitor de serviços/processos...");
 
             try
             {
                 _ctsMonitor.Cancel();
                 _monitorTask?.Wait(2000);
+
+                AppLogger.Write(AppLogger.LogLevel.Info, "Monitor parado com sucesso.");
             }
-            catch { }
+            catch
+            { 
+                AppLogger.Write(AppLogger.LogLevel.Error, "Monitor não respondeu ao cancelamento em tempo hábil.");
+            }
             finally
             {
                 _monitorActive = false;
                 _modoAltoAtivo = false;
-                _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção desativada", ToolTipIcon.Info);
+
+                if (!_quitRequested && _trayIcon != null)
+                {
+                    _trayIcon.ShowBalloonTip(1000, "ThGameMode", "Detecção desativada", ToolTipIcon.Info);
+                    _trayIcon.Icon = _iconPadrao;
+                    _trayIcon.Text = "ThGameMode — Desativado";
+                }
             }
         }
 
         private async Task MonitorLoopAsync(CancellationToken token)
         {
+            AppLogger.Write(AppLogger.LogLevel.Info, "Monitor iniciado.");
+
             while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    LoadConfig();
-
-                    bool itemRodando = false;
-
-                    foreach (var item in _config.ListServices)
-                    {
-                        if (string.IsNullOrWhiteSpace(item)) continue;
-
-                        bool rodando = await IsItemRunningAsync(item);
-                        if (rodando)
-                        {
-                            itemRodando = true;
-                            break;
-                        }
-                    }
-
-                    if (itemRodando && !_modoAltoAtivo)
-                    {
-                        TrocarPlano(_config.PowerPlanOpenApp);
-                        _modoAltoAtivo = true;
-                        _trayIcon!.Text = "ThGameMode — Alto desempenho ativo";
-                    }
-                    else if (!itemRodando && _modoAltoAtivo)
-                    {
-                        TrocarPlano(_config.PowerPlanClosedApp);
-                        _modoAltoAtivo = false;
-                        _trayIcon!.Text = "ThGameMode — Economia ativa";
-                    }
+                    await EvaluateMonitorStateAsync(token);
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
+                    AppLogger.Write(AppLogger.LogLevel.Error, "Erro no monitor: " + ex.Message);
                     _trayIcon?.ShowBalloonTip(1000, "ThGameMode", $"Erro no monitor: {ex.Message}", ToolTipIcon.Warning);
                 }
 
@@ -517,6 +806,50 @@ namespace ThGameMode.Screens
 
             return false;
         }
+
+        private async Task EvaluateMonitorStateAsync(CancellationToken token)
+        {
+            LoadConfig();
+
+            bool itemRodando = false;
+
+            foreach (var item in _config.ListServices)
+            {
+                token.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(item)) continue;
+
+                bool rodando = await IsItemRunningAsync(item);
+                if (rodando)
+                {
+                    AppLogger.Write(AppLogger.LogLevel.Info, $"Item detectado em execução: {item}");
+                    itemRodando = true;
+                    break;
+                }
+            }
+
+            if (itemRodando && !_modoAltoAtivo)
+            {
+                TrocarPlano(_config.PowerPlanOpenApp);
+                _modoAltoAtivo = true;
+                UpdateTrayStatus(true);
+            }
+            else if (!itemRodando && _modoAltoAtivo)
+            {
+                TrocarPlano(_config.PowerPlanClosedApp);
+                _modoAltoAtivo = false;
+                UpdateTrayStatus(false);
+            }
+            else if (itemRodando)
+            {
+                ApplyTrayVisualState(true);
+            }
+            else
+            {
+                ApplyTrayVisualState(false);
+            }
+
+            AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor verificação concluída. Estado atual: {(_modoAltoAtivo ? "Alto desempenho" : "Economia")}");
+        }
         #endregion
 
         #region Save & Restart Monitor
@@ -532,6 +865,14 @@ namespace ThGameMode.Screens
             LoadAvailableItems();
             AtualizaRefresh();
             StartMonitor();
+        }
+
+        private void SaveConfigAndRefreshMonitorState()
+        {
+            SaveConfig();
+
+            if (_monitorActive)
+                EvaluateMonitorStateAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
         #endregion
 
