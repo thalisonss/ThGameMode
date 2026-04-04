@@ -8,5 +8,6 @@ namespace ThGameMode
         public string PowerPlanOpenApp { get; set; } = string.Empty;
         public string PowerPlanClosedApp { get; set; } = string.Empty;
         public List<string> ListServices { get; set; } = new();
+        public Dictionary<string, string> ManualExecutablePaths { get; set; } = new();
     }
 }

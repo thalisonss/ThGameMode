@@ -26,6 +26,7 @@ namespace ThGameMode.Screens
         private List<string> _itemsAvailable = new();
         private List<string> _itemsAdded = new();
         private readonly Dictionary<string, string> _itemDisplayNameCache = new(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, string> _manualExecutablePaths = new(StringComparer.OrdinalIgnoreCase);
         private readonly GitHubReleaseChecker _releaseChecker = new();
 
         // Monitor background
@@ -98,6 +99,7 @@ namespace ThGameMode.Screens
                 _tooltipTimer.Start();
 
                 // Carrega serviços/processos em execução para popular grid
+                InitializeManualExecutableButton();
                 LoadAvailableItems();
                 AtualizaRefresh();
 
@@ -180,6 +182,87 @@ namespace ThGameMode.Screens
                 throw new FileNotFoundException($"Could not find icon file '{iconPath}'.", iconPath);
 
             return new Icon(iconPath);
+        }
+
+        private void InitializeManualExecutableButton()
+        {
+            btnInstallUninstall.Enabled = true;
+            btnInstallUninstall.Text = "Adicionar .exe";
+            btnInstallUninstall.Click -= btnInstallUninstall_Click;
+            btnInstallUninstall.Click += btnInstallUninstall_Click;
+        }
+
+        private void btnInstallUninstall_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Filter = "Aplicativos (*.exe)|*.exe",
+                Title = "Selecionar executável para monitorar",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            AddManualExecutable(dialog.FileName);
+        }
+
+        private void AddManualExecutable(string executablePath)
+        {
+            if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+            {
+                MessageBox.Show("Selecione um executável válido.", "Arquivo inválido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string processName = Path.GetFileNameWithoutExtension(executablePath);
+            if (string.IsNullOrWhiteSpace(processName))
+                return;
+
+            _manualExecutablePaths[processName] = executablePath;
+            _itemDisplayNameCache[processName] = BuildDisplayNameFromExecutablePath(processName, executablePath);
+
+            if (!_itemsAdded.Contains(processName, StringComparer.OrdinalIgnoreCase))
+                _itemsAdded.Add(processName);
+
+            AtualizarGridServicesAdded();
+            AtualizaRefresh();
+            SaveConfigAndRefreshMonitorState();
+        }
+
+        private void PopulateManualExecutableDisplayCache()
+        {
+            foreach (var pair in _manualExecutablePaths)
+            {
+                if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrWhiteSpace(pair.Value))
+                    continue;
+
+                if (!File.Exists(pair.Value))
+                    continue;
+
+                _itemDisplayNameCache[pair.Key] = BuildDisplayNameFromExecutablePath(pair.Key, pair.Value);
+            }
+        }
+
+        private static string BuildDisplayNameFromExecutablePath(string processName, string executablePath)
+        {
+            try
+            {
+                var versionInfo = FileVersionInfo.GetVersionInfo(executablePath);
+                string? friendlyName = !string.IsNullOrWhiteSpace(versionInfo.FileDescription)
+                    ? versionInfo.FileDescription.Trim()
+                    : versionInfo.ProductName?.Trim();
+
+                if (!string.IsNullOrWhiteSpace(friendlyName) &&
+                    !string.Equals(friendlyName, processName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"{friendlyName} - {processName}";
+                }
+            }
+            catch { }
+
+            return processName;
         }
 
         private void ShowWindow()
@@ -488,6 +571,8 @@ namespace ThGameMode.Screens
                     AppLogger.Write(AppLogger.LogLevel.Warning, "Arquivo de configuração não encontrado. Usando valores padrão.");
                     _config = new Configuracao(); // default
                     _itemsAdded = _config.ListServices ?? new List<string>();
+                    _manualExecutablePaths = new Dictionary<string, string>(_config.ManualExecutablePaths ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+                    PopulateManualExecutableDisplayCache();
 
                     if (applyToUi)
                         ApplyConfigToUI();
@@ -498,6 +583,8 @@ namespace ThGameMode.Screens
                 string json = File.ReadAllText(_configPath, Encoding.UTF8);
                 _config = JsonSerializer.Deserialize<Configuracao>(json) ?? new Configuracao();
                 _itemsAdded = _config.ListServices ?? new List<string>();
+                _manualExecutablePaths = new Dictionary<string, string>(_config.ManualExecutablePaths ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+                PopulateManualExecutableDisplayCache();
 
                 AppLogger.Write(AppLogger.LogLevel.Info, "Configuração carregada com sucesso.");
 
@@ -540,6 +627,9 @@ namespace ThGameMode.Screens
                 _config.PowerPlanOpenApp = cboPowerPlanOpenApp.SelectedValue?.ToString() ?? string.Empty;
                 _config.PowerPlanClosedApp = cboPowerPlanClosedApp.SelectedValue?.ToString() ?? string.Empty;
                 _config.ListServices = _itemsAdded.ToList();
+                _config.ManualExecutablePaths = _manualExecutablePaths
+                    .Where(pair => _itemsAdded.Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
                 string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json, Encoding.UTF8);
@@ -636,6 +726,7 @@ namespace ThGameMode.Screens
             if (string.IsNullOrEmpty(item)) return;
 
             _itemsAdded.RemoveAll(x => string.Equals(x, item, StringComparison.OrdinalIgnoreCase));
+            _manualExecutablePaths.Remove(item);
             AtualizarGridServicesAdded();
             AtualizaRefresh();
             SaveConfigAndRefreshMonitorState();
@@ -668,6 +759,7 @@ namespace ThGameMode.Screens
 
             _itemsAvailable = _itemsAvailable.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n).ToList();
             PopulateDisplayNameCache();
+            PopulateManualExecutableDisplayCache();
         }
 
         private string GetItemDisplayName(string item)
