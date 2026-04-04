@@ -19,18 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="config.Designer.cs">
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>config.settings</DependentUpon>
-    </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="config.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>config.Designer.cs</LastGenOutput>
-    </None>
+    <Compile Remove="config.Designer.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,6 +8,7 @@ using System.Linq;
 using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
@@ -26,17 +27,18 @@ namespace ThGameMode.Screens
         private readonly Dictionary<string, string> _itemDisplayNameCache = new(StringComparer.OrdinalIgnoreCase);
 
         // Monitor background
-        private CancellationTokenSource _ctsMonitor;
-        private Task _monitorTask;
+        private CancellationTokenSource? _ctsMonitor;
+        private Task? _monitorTask;
         private bool _monitorActive = false;
         private bool _modoAltoAtivo = false;
+        private string? _planoEnergiaOriginalGuid;
 
         // Tray
-        private NotifyIcon _trayIcon;
-        private Icon _iconEconomia;
-        private Icon _iconAltoDesempenho;
-        private Icon _iconPadrao;
-        private ContextMenuStrip _trayMenu;
+        private NotifyIcon? _trayIcon;
+        private Icon? _iconEconomia;
+        private Icon? _iconAltoDesempenho;
+        private Icon? _iconPadrao;
+        private ContextMenuStrip? _trayMenu;
         private bool _quitRequested = false;
         private readonly bool _startMinimized;
 
@@ -47,9 +49,7 @@ namespace ThGameMode.Screens
         private DateTime _modoAtivadoEm = DateTime.Now;
         private string _ultimoProcessoDetectado = "Nenhum";
         private DateTime _ultimaMudanca = DateTime.Now;
-        private System.Windows.Forms.Timer _tooltipTimer;
-
-        private bool _isHighPerformance = false;
+        private System.Windows.Forms.Timer? _tooltipTimer;
 
 
 
@@ -136,7 +136,8 @@ namespace ThGameMode.Screens
             _trayMenu.Items.Add("Sair", null, (s, e) =>
             {
                 _quitRequested = true;
-                _trayIcon.Visible = false; // remove ícone da bandeja
+                if (_trayIcon != null)
+                    _trayIcon.Visible = false; // remove ícone da bandeja
                 Application.Exit();        // fecha o app
             });
 
@@ -231,19 +232,19 @@ namespace ThGameMode.Screens
             if (currentValue.IndexOf("--minimized", StringComparison.OrdinalIgnoreCase) >= 0)
                 return;
 
-            rk.SetValue("ThGameMode", GetStartupCommand());
+            rk?.SetValue("ThGameMode", GetStartupCommand());
         }
 
         private void EnableStartup()
         {
             using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-            rk.SetValue("ThGameMode", GetStartupCommand());
+            rk?.SetValue("ThGameMode", GetStartupCommand());
         }
 
         private void DisableStartup()
         {
             using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-            rk.DeleteValue("ThGameMode", false);
+            rk?.DeleteValue("ThGameMode", false);
         }
 
         public void UpdateTrayStatus(bool altoDesempenhoAtivo, string processoDetectado = "")
@@ -319,7 +320,7 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Config JSON I/O
-        private void LoadConfig()
+        private void LoadConfig(bool applyToUi = true)
         {
             try
             {
@@ -329,7 +330,11 @@ namespace ThGameMode.Screens
                 {
                     AppLogger.Write(AppLogger.LogLevel.Warning, "Arquivo de configuração não encontrado. Usando valores padrão.");
                     _config = new Configuracao(); // default
-                    ApplyConfigToUI();
+                    _itemsAdded = _config.ListServices ?? new List<string>();
+
+                    if (applyToUi)
+                        ApplyConfigToUI();
+
                     return;
                 }
 
@@ -339,7 +344,8 @@ namespace ThGameMode.Screens
 
                 AppLogger.Write(AppLogger.LogLevel.Info, "Configuração carregada com sucesso.");
 
-                ApplyConfigToUI();
+                if (applyToUi)
+                    ApplyConfigToUI();
             }
             catch (Exception ex)
             {
@@ -498,7 +504,7 @@ namespace ThGameMode.Screens
             {
                 var processos = Process.GetProcesses()
                     .Select(p => { try { return p.ProcessName; } catch { return null; } })
-                    .Where(n => !string.IsNullOrEmpty(n));
+                    .OfType<string>();
                 _itemsAvailable.AddRange(processos);
             }
             catch { }
@@ -604,7 +610,7 @@ namespace ThGameMode.Screens
         {
             try
             {
-                string fileName = process.MainModule?.FileName;
+                string? fileName = process.MainModule?.FileName;
                 if (!string.IsNullOrWhiteSpace(fileName) && File.Exists(fileName))
                 {
                     var versionInfo = FileVersionInfo.GetVersionInfo(fileName);
@@ -639,8 +645,8 @@ namespace ThGameMode.Screens
         #region Planos de energia
         public class PowerPlan
         {
-            public string Name { get; set; }
-            public string Guid { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Guid { get; set; } = string.Empty;
             public override string ToString() => $"{Name} ({Guid})";
         }
 
@@ -714,6 +720,66 @@ namespace ThGameMode.Screens
                 _trayIcon?.ShowBalloonTip(1500, "ThGameMode", $"Erro ao trocar plano: {ex.Message}", ToolTipIcon.Error);
             }
         }
+
+        private string? GetActivePowerPlanGuid()
+        {
+            try
+            {
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "powercfg",
+                        Arguments = "/getactivescheme",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = Encoding.UTF8
+                    }
+                };
+
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                var match = Regex.Match(output, @"\b([0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})\b");
+                if (match.Success)
+                    return match.Groups[1].Value;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Write(AppLogger.LogLevel.Warning, "Não foi possível obter o plano de energia ativo: " + ex.Message);
+            }
+
+            return null;
+        }
+
+        private void EnsureOriginalPowerPlanCaptured()
+        {
+            if (!string.IsNullOrWhiteSpace(_planoEnergiaOriginalGuid))
+                return;
+
+            _planoEnergiaOriginalGuid = GetActivePowerPlanGuid();
+
+            if (!string.IsNullOrWhiteSpace(_planoEnergiaOriginalGuid))
+                AppLogger.Write(AppLogger.LogLevel.Info, $"Plano de energia original capturado: {_planoEnergiaOriginalGuid}");
+        }
+
+        private void RestoreOriginalPowerPlan()
+        {
+            if (string.IsNullOrWhiteSpace(_planoEnergiaOriginalGuid))
+                return;
+
+            string guidOriginal = _planoEnergiaOriginalGuid;
+            _planoEnergiaOriginalGuid = null;
+
+            string? guidAtual = GetActivePowerPlanGuid();
+            if (string.Equals(guidAtual, guidOriginal, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            AppLogger.Write(AppLogger.LogLevel.Info, $"Restaurando plano de energia original: {guidOriginal}");
+            TrocarPlano(guidOriginal);
+        }
         #endregion
 
         #region Monitor
@@ -754,7 +820,7 @@ namespace ThGameMode.Screens
 
             try
             {
-                _ctsMonitor.Cancel();
+                _ctsMonitor?.Cancel();
                 _monitorTask?.Wait(2000);
 
                 AppLogger.Write(AppLogger.LogLevel.Info, "Monitor parado com sucesso.");
@@ -765,6 +831,7 @@ namespace ThGameMode.Screens
             }
             finally
             {
+                RestoreOriginalPowerPlan();
                 _monitorActive = false;
                 _modoAltoAtivo = false;
 
@@ -810,7 +877,7 @@ namespace ThGameMode.Screens
             catch { }
 
             string procName = item;
-            string windowText = null;
+            string? windowText = null;
             if (item.Contains("|"))
             {
                 var parts = item.Split('|', 2);
@@ -845,11 +912,9 @@ namespace ThGameMode.Screens
 
         private async Task EvaluateMonitorStateAsync(CancellationToken token)
         {
-            LoadConfig();
-
             bool itemRodando = false;
 
-            foreach (var item in _config.ListServices)
+            foreach (var item in _config.ListServices ?? Enumerable.Empty<string>())
             {
                 token.ThrowIfCancellationRequested();
                 if (string.IsNullOrWhiteSpace(item)) continue;
@@ -865,12 +930,14 @@ namespace ThGameMode.Screens
 
             if (itemRodando && !_modoAltoAtivo)
             {
+                EnsureOriginalPowerPlanCaptured();
                 TrocarPlano(_config.PowerPlanOpenApp);
                 _modoAltoAtivo = true;
                 UpdateTrayStatus(true);
             }
             else if (!itemRodando && _modoAltoAtivo)
             {
+                EnsureOriginalPowerPlanCaptured();
                 TrocarPlano(_config.PowerPlanClosedApp);
                 _modoAltoAtivo = false;
                 UpdateTrayStatus(false);
@@ -931,7 +998,15 @@ namespace ThGameMode.Screens
             }
 
             // Limpa tray e finaliza monitor
-            try { _trayIcon.Visible = false; _trayIcon.Dispose(); } catch { }
+            try
+            {
+                if (_trayIcon != null)
+                {
+                    _trayIcon.Visible = false;
+                    _trayIcon.Dispose();
+                }
+            }
+            catch { }
             StopMonitor();
 
             base.OnFormClosing(e);
