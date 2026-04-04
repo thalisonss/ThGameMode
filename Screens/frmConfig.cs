@@ -17,25 +17,34 @@ using ThGameMode.Utils;
 
 namespace ThGameMode.Screens
 {
+    /// <summary>
+    /// Tela principal e centro de orquestração da aplicação:
+    /// carrega configurações, mantém o ícone de bandeja e monitora processos/serviços.
+    /// </summary>
     public partial class frmConfig : Form
     {
-        // Caminho do JSON na raiz do programa
+        // Caminho do arquivo persistido com as preferências do usuário.
         private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "ThGameModeConfig.json");
 
-        // Itens disponíveis e adicionados
+        // _itemsAvailable: itens detectados no sistema e exibidos para seleção.
+        // _itemsAdded: itens efetivamente monitorados e salvos na configuração.
         private List<string> _itemsAvailable = new();
         private List<string> _itemsAdded = new();
+
+        // Cache para evitar consultar metadados de processos/serviços repetidamente ao montar a UI.
         private readonly Dictionary<string, string> _itemDisplayNameCache = new(StringComparer.OrdinalIgnoreCase);
+
+        // Serviço responsável por consultar novas versões no GitHub.
         private readonly GitHubReleaseChecker _releaseChecker = new();
 
-        // Monitor background
+        // Controle do monitor assíncrono executado em segundo plano.
         private CancellationTokenSource? _ctsMonitor;
         private Task? _monitorTask;
         private bool _monitorActive = false;
         private bool _modoAltoAtivo = false;
         private string? _planoEnergiaOriginalGuid;
 
-        // Tray
+        // Estado visual e comportamental do ícone da bandeja do sistema.
         private NotifyIcon? _trayIcon;
         private Icon? _iconEconomia;
         private Icon? _iconAltoDesempenho;
@@ -47,10 +56,10 @@ namespace ThGameMode.Screens
         private bool _updateNotificationPendingOpen = false;
         private string? _latestReleaseUrl;
 
-        // Config atual em memória
+        // Espelho em memória do JSON carregado/salvo no disco.
         private Configuracao _config = new();
 
-        // Estado do tray
+        // Informações usadas para compor o tooltip e dar feedback visual ao usuário.
         private DateTime _modoAtivadoEm = DateTime.Now;
         private string _ultimoProcessoDetectado = "Nenhum";
         private DateTime _ultimaMudanca = DateTime.Now;
@@ -58,6 +67,9 @@ namespace ThGameMode.Screens
 
 
 
+        /// <summary>
+        /// startMinimized é usado no startup automático para abrir a aplicação direto na bandeja.
+        /// </summary>
         public frmConfig(bool startMinimized = false)
         {
             _startMinimized = startMinimized;
@@ -70,7 +82,7 @@ namespace ThGameMode.Screens
         {
             try
             {
-                // Carrega planos de energia para os combo boxes
+                // A inicialização prepara a UI, restaura configuração, popula listas e sobe o monitor.
                 AppLogger.Write(AppLogger.LogLevel.Info, "Inicializando interface e carregando configurações...");
 
                 var planos = GetEnergyPlans();
@@ -84,7 +96,7 @@ namespace ThGameMode.Screens
                 cboPowerPlanClosedApp.DisplayMember = "Name";
                 cboPowerPlanClosedApp.ValueMember = "Guid";
 
-                // Carrega config (se existir) e popula UI
+                // Depois de preencher os combos, aplicamos a configuração salva para selecionar os valores corretos.
                 LoadConfig();
                 EnsureStartupUsesMinimizedArgument();
 
@@ -92,16 +104,16 @@ namespace ThGameMode.Screens
                 _tooltipTimer.Interval = 1000; // 1 segundo
                 _tooltipTimer.Tick += (s, e) =>
                 {
-                    // Atualiza tooltip a cada 1s sem mudar estado
+                    // O tooltip é recalculado continuamente para mostrar tempo ativo sem reiniciar o monitor.
                     UpdateTrayTooltip(_modoAltoAtivo);
                 };
                 _tooltipTimer.Start();
 
-                // Carrega serviços/processos em execução para popular grid
+                // Faz um snapshot inicial dos serviços/processos visíveis para a tela de configuração.
                 LoadAvailableItems();
                 AtualizaRefresh();
 
-                // Inicia monitor automaticamente (modo padrão ligado)
+                // O monitor já sobe na abertura para que o comportamento automático funcione sem ação do usuário.
                 StartMonitor();
                 AppLogger.Write(AppLogger.LogLevel.Info, $"Monitor iniciado automaticamente.");
                 _ = CheckForUpdatesAsync(false);
@@ -122,11 +134,12 @@ namespace ThGameMode.Screens
         #region Tray (NotifyIcon)
         private void InitializeTray()
         {
-            // Carrega ícones a partir da pasta do executável.
+            // Cada ícone representa um estado visual do app na bandeja.
             _iconEconomia = LoadIconFromAppDirectory("icon_economia.ico");
             _iconAltoDesempenho = LoadIconFromAppDirectory("icon_alto_desempenho.ico");
             _iconPadrao = LoadIconFromAppDirectory("icon_padrao.ico");
 
+            // O menu contextual expõe as ações mais comuns sem precisar abrir a janela.
             _trayMenu = new ContextMenuStrip();
             _trayMenu.Items.Add("Ativar detecção", null, (s, e) => StartMonitor());
             _trayMenu.Items.Add("Desativar detecção", null, (s, e) => StopMonitor());
@@ -149,6 +162,7 @@ namespace ThGameMode.Screens
             _trayMenu.Items.Add(new ToolStripSeparator());
             _trayMenu.Items.Add("Sair", null, (s, e) =>
             {
+                // Essa flag diferencia um fechamento intencional de um simples "fechar janela".
                 _quitRequested = true;
                 if (_trayIcon != null)
                     _trayIcon.Visible = false; // remove ícone da bandeja
@@ -182,6 +196,9 @@ namespace ThGameMode.Screens
             return new Icon(iconPath);
         }
 
+        /// <summary>
+        /// Reexibe a janela principal quando o usuário interage com o tray.
+        /// </summary>
         private void ShowWindow()
         {
             this.WindowState = FormWindowState.Normal;
@@ -191,6 +208,9 @@ namespace ThGameMode.Screens
             this.Activate();
         }
 
+        /// <summary>
+        /// Mantém a aplicação viva, mas invisível, para continuar monitorando em segundo plano.
+        /// </summary>
         private void HideToTray()
         {
             this.WindowState = FormWindowState.Minimized;
@@ -203,10 +223,13 @@ namespace ThGameMode.Screens
             base.OnResize(e);
             if (this.WindowState == FormWindowState.Minimized)
             {
-                HideToTray(); // esconde o form, mantém tray
+                HideToTray(); // Minimizar funciona como "enviar para a bandeja".
             }
         }
 
+        /// <summary>
+        /// Liga ou desliga a inicialização automática no registro do Windows.
+        /// </summary>
         private void ToggleStartup(ToolStripItem menuItem)
         {
             try
@@ -235,11 +258,17 @@ namespace ThGameMode.Screens
             return rk?.GetValue("ThGameMode") != null;
         }
 
+        /// <summary>
+        /// Sempre iniciamos com o argumento --minimized para não "piscar" a janela ao logar no Windows.
+        /// </summary>
         private static string GetStartupCommand()
         {
             return $"\"{Application.ExecutablePath}\" --minimized";
         }
 
+        /// <summary>
+        /// Corrige entradas antigas do registro que ainda não possuam o argumento de inicialização minimizada.
+        /// </summary>
         private void EnsureStartupUsesMinimizedArgument()
         {
             using var rk = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
@@ -278,7 +307,7 @@ namespace ThGameMode.Screens
 
             _ultimaMudanca = DateTime.Now;
 
-            // ícone + texto curto
+            // Ao trocar de modo, atualizamos o ícone e reiniciamos o contador de permanência no estado.
             if (altoDesempenhoAtivo)
             {
                 _trayIcon.Icon = _iconAltoDesempenho;
@@ -290,13 +319,15 @@ namespace ThGameMode.Screens
                 _trayIcon.Text = "ThGameMode — Economia de energia ativa";
             }
 
-            // reinicia contagem do tempo
+            // O tempo mostrado no tooltip representa quanto tempo o modo atual está ativo.
             _modoAtivadoEm = DateTime.Now;
 
-            // atualiza tooltip completo
             UpdateTrayTooltip(altoDesempenhoAtivo);
         }
 
+        /// <summary>
+        /// Atualiza somente a aparência do tray, sem reiniciar contadores ou registrar mudança de modo.
+        /// </summary>
         private void ApplyTrayVisualState(bool altoDesempenhoAtivo)
         {
             if (_trayIcon == null)
@@ -316,6 +347,9 @@ namespace ThGameMode.Screens
             UpdateTrayTooltip(altoDesempenhoAtivo);
         }
 
+        /// <summary>
+        /// Monta o texto do tooltip com o contexto mais recente do monitor.
+        /// </summary>
         private void UpdateTrayTooltip(bool altoDesempenhoAtivo)
         {
             if (_trayIcon == null) return;
@@ -331,6 +365,7 @@ namespace ThGameMode.Screens
                 $"Último jogo: {_ultimoProcessoDetectado}\n" +
                 $"Última mudança: {_ultimaMudanca:HH:mm:ss}";
 
+            // O Windows limita o texto do NotifyIcon; por isso truncamos o tooltip.
             _trayIcon.Text = tooltip.Length > 63
                 ? tooltip.Substring(0, 63)
                 : tooltip;
@@ -339,6 +374,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Updates
+        /// <summary>
+        /// Verifica no GitHub se existe uma release mais nova do que a versão atual do executável.
+        /// </summary>
         private async Task CheckForUpdatesAsync(bool manualCheck)
         {
             try
@@ -350,6 +388,7 @@ namespace ThGameMode.Screens
 
                 if (result.IsUpdateAvailable && !string.IsNullOrWhiteSpace(result.ReleaseUrl))
                 {
+                    // Guardamos a URL para reutilizar tanto no menu do tray quanto no clique do balão.
                     _latestReleaseUrl = result.ReleaseUrl;
                     _updateNotificationPendingOpen = true;
 
@@ -363,6 +402,7 @@ namespace ThGameMode.Screens
                         $"Nova versão encontrada ({result.LatestTag}). Clique para abrir a release no GitHub.",
                         ToolTipIcon.Info);
 
+                    // Em uso interativo, podemos oferecer a abertura imediata da página da release.
                     if (!_startMinimized && Visible && WindowState != FormWindowState.Minimized)
                     {
                         var answer = MessageBox.Show(
@@ -445,11 +485,17 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Lê a versão do assembly em execução, usada na comparação de updates.
+        /// </summary>
         private static Version GetCurrentVersion()
         {
             return Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0, 0);
         }
 
+        /// <summary>
+        /// Abre a página da última release detectada no navegador padrão do Windows.
+        /// </summary>
         private void OpenLatestReleasePage()
         {
             if (string.IsNullOrWhiteSpace(_latestReleaseUrl))
@@ -477,6 +523,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Config JSON I/O
+        /// <summary>
+        /// Carrega o arquivo JSON para memória e, opcionalmente, reflete o estado na interface.
+        /// </summary>
         private void LoadConfig(bool applyToUi = true)
         {
             try
@@ -486,7 +535,7 @@ namespace ThGameMode.Screens
                 if (!File.Exists(_configPath))
                 {
                     AppLogger.Write(AppLogger.LogLevel.Warning, "Arquivo de configuração não encontrado. Usando valores padrão.");
-                    _config = new Configuracao(); // default
+                    _config = new Configuracao(); // Mantém o app funcional mesmo no primeiro uso.
                     _itemsAdded = _config.ListServices ?? new List<string>();
 
                     if (applyToUi)
@@ -511,12 +560,16 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Copia a configuração carregada para os controles da tela.
+        /// </summary>
         private void ApplyConfigToUI()
         {
             try
             {
                 if (nudCheckInterval.InvokeRequired)
                 {
+                    // Caso o método seja chamado fora da thread da UI, voltamos com segurança para ela.
                     nudCheckInterval.Invoke(new Action(ApplyConfigToUI));
                     return;
                 }
@@ -530,6 +583,9 @@ namespace ThGameMode.Screens
             catch { }
         }
 
+        /// <summary>
+        /// Lê o estado atual da interface e persiste tudo no JSON.
+        /// </summary>
         private void SaveConfig()
         {
             AppLogger.Write(AppLogger.LogLevel.Info, "Salvando configuração no arquivo JSON...");
@@ -555,6 +611,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Grid helpers
+        /// <summary>
+        /// Preenche a grade da direita com os itens que já estão sendo monitorados.
+        /// </summary>
         private void AtualizarGridServicesAdded()
         {
             string filtro = txtSearchServiceAdded.Text.Trim().ToLower();
@@ -571,6 +630,9 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Recarrega a grade da esquerda com tudo que está disponível, exceto o que já foi adicionado.
+        /// </summary>
         private void AtualizaRefresh()
         {
             dgvListServices.Rows.Clear();
@@ -587,6 +649,9 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Filtra a lista de itens disponíveis conforme o usuário digita.
+        /// </summary>
         private void txtSearchService_TextChanged(object sender, EventArgs e)
         {
             string filtro = txtSearchService.Text.Trim().ToLower();
@@ -605,11 +670,17 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// O filtro da lista monitorada reaproveita o método central de atualização da grade.
+        /// </summary>
         private void txtSearchServiceAdded_TextChanged(object sender, EventArgs e)
         {
             AtualizarGridServicesAdded();
         }
 
+        /// <summary>
+        /// Clique no botão de adicionar dentro da grade de disponíveis.
+        /// </summary>
         private void dgvListServices_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
@@ -627,6 +698,9 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Clique no botão de remover dentro da grade de monitorados.
+        /// </summary>
         private void dgvListServicesAdded_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex != 1) return;
@@ -643,6 +717,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Load available items
+        /// <summary>
+        /// Faz um snapshot dos serviços em execução e dos processos atualmente visíveis no sistema.
+        /// </summary>
         private void LoadAvailableItems()
         {
             _itemsAvailable.Clear();
@@ -650,6 +727,7 @@ namespace ThGameMode.Screens
 
             try
             {
+                // Serviços entram pelo ServiceName porque é esse identificador que conseguiremos consultar depois.
                 var runningServices = ServiceController.GetServices()
                     .Where(s => s.Status == ServiceControllerStatus.Running)
                     .Select(s => s.ServiceName);
@@ -659,6 +737,7 @@ namespace ThGameMode.Screens
 
             try
             {
+                // Para processos, usamos o nome do processo pois é o critério mais estável para reconsulta.
                 var processos = Process.GetProcesses()
                     .Select(p => { try { return p.ProcessName; } catch { return null; } })
                     .OfType<string>();
@@ -666,10 +745,14 @@ namespace ThGameMode.Screens
             }
             catch { }
 
+            // Distinct remove duplicatas entre serviços/processos e OrderBy deixa a seleção mais amigável.
             _itemsAvailable = _itemsAvailable.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n).ToList();
             PopulateDisplayNameCache();
         }
 
+        /// <summary>
+        /// Traduz um identificador técnico para um nome mais amigável sem perder o valor real monitorado.
+        /// </summary>
         private string GetItemDisplayName(string item)
         {
             if (string.IsNullOrWhiteSpace(item))
@@ -680,12 +763,14 @@ namespace ThGameMode.Screens
 
             try
             {
+                // Se abrir como serviço, mantemos o nome original porque ele já é o identificador correto.
                 using var sc = new ServiceController(item);
                 _ = sc.Status;
                 return _itemDisplayNameCache[item] = item;
             }
             catch { }
 
+            // Alguns itens podem carregar "processo|trecho da janela" para distinguir instâncias específicas.
             string procName = item;
             if (item.Contains("|"))
             {
@@ -711,6 +796,9 @@ namespace ThGameMode.Screens
             return _itemDisplayNameCache[item] = procName;
         }
 
+        /// <summary>
+        /// Pré-aquece o cache de nomes amigáveis para reduzir custo durante filtros e refresh da UI.
+        /// </summary>
         private void PopulateDisplayNameCache()
         {
             var processFriendlyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -763,6 +851,9 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Tenta obter um nome mais legível do processo a partir de metadados do executável.
+        /// </summary>
         private string TryGetFriendlyProcessName(Process process)
         {
             try
@@ -800,6 +891,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Planos de energia
+        /// <summary>
+        /// Representa uma opção retornada pelo comando powercfg.
+        /// </summary>
         public class PowerPlan
         {
             public string Name { get; set; } = string.Empty;
@@ -807,6 +901,9 @@ namespace ThGameMode.Screens
             public override string ToString() => $"{Name} ({Guid})";
         }
 
+        /// <summary>
+        /// Consulta os planos de energia disponíveis no Windows via powercfg /list.
+        /// </summary>
         private List<PowerPlan> GetEnergyPlans()
         {
             var planos = new List<PowerPlan>();
@@ -829,6 +926,7 @@ namespace ThGameMode.Screens
                 string output = process.StandardOutput.ReadToEnd();
                 process.WaitForExit();
 
+                // O output é texto livre; por isso fazemos um parse simples procurando GUID + nome.
                 foreach (string linha in output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 {
                     if (linha.Contains("GUID", StringComparison.OrdinalIgnoreCase))
@@ -852,6 +950,9 @@ namespace ThGameMode.Screens
             return planos;
         }
 
+        /// <summary>
+        /// Ativa um plano de energia pelo GUID usando a ferramenta nativa do Windows.
+        /// </summary>
         private void TrocarPlano(string guid)
         {
             if (string.IsNullOrWhiteSpace(guid)) return;
@@ -878,6 +979,9 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Descobre qual plano está ativo agora para podermos restaurá-lo depois.
+        /// </summary>
         private string? GetActivePowerPlanGuid()
         {
             try
@@ -911,6 +1015,9 @@ namespace ThGameMode.Screens
             return null;
         }
 
+        /// <summary>
+        /// Guarda o plano original apenas uma vez por ciclo de monitoramento.
+        /// </summary>
         private void EnsureOriginalPowerPlanCaptured()
         {
             if (!string.IsNullOrWhiteSpace(_planoEnergiaOriginalGuid))
@@ -922,6 +1029,9 @@ namespace ThGameMode.Screens
                 AppLogger.Write(AppLogger.LogLevel.Info, $"Plano de energia original capturado: {_planoEnergiaOriginalGuid}");
         }
 
+        /// <summary>
+        /// Ao parar o monitor, devolve o computador para o plano que estava ativo antes da intervenção do app.
+        /// </summary>
         private void RestoreOriginalPowerPlan()
         {
             if (string.IsNullOrWhiteSpace(_planoEnergiaOriginalGuid))
@@ -940,6 +1050,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Monitor
+        /// <summary>
+        /// Sobe o loop assíncrono que vigia serviços/processos e decide qual plano de energia ativar.
+        /// </summary>
         private void StartMonitor()
         {
             if (_monitorActive)
@@ -953,6 +1066,8 @@ namespace ThGameMode.Screens
             try
             {
                 _ctsMonitor = new CancellationTokenSource();
+
+                // Fazemos uma avaliação imediata para aplicar o estado correto sem esperar o primeiro intervalo.
                 EvaluateMonitorStateAsync(_ctsMonitor.Token).GetAwaiter().GetResult();
                 _monitorActive = true;
                 _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
@@ -965,6 +1080,9 @@ namespace ThGameMode.Screens
             }         
         }
 
+        /// <summary>
+        /// Cancela o monitor e normaliza o estado visual/energético ao encerrar a detecção.
+        /// </summary>
         private void StopMonitor()
         {
             if (!_monitorActive)
@@ -1001,6 +1119,9 @@ namespace ThGameMode.Screens
             }
         }
 
+        /// <summary>
+        /// Loop principal do monitor; reavalia o estado em intervalos definidos pelo usuário.
+        /// </summary>
         private async Task MonitorLoopAsync(CancellationToken token)
         {
             AppLogger.Write(AppLogger.LogLevel.Info, "Monitor iniciado.");
@@ -1018,21 +1139,27 @@ namespace ThGameMode.Screens
                     _trayIcon?.ShowBalloonTip(1000, "ThGameMode", $"Erro no monitor: {ex.Message}", ToolTipIcon.Warning);
                 }
 
+                // Nunca deixamos o intervalo cair abaixo de 1 segundo para evitar loop agressivo.
                 int intervalo = Math.Max(1, _config.CheckInterval);
                 try { await Task.Delay(intervalo * 1000, token); }
                 catch (OperationCanceledException) { break; }
             }
         }
 
+        /// <summary>
+        /// Verifica se o item configurado está ativo, tratando tanto serviços quanto processos.
+        /// </summary>
         private Task<bool> IsItemRunningAsync(string item)
         {
             try
             {
+                // Primeiro tentamos como serviço porque essa consulta é direta e barata.
                 using var sc = new ServiceController(item);
                 return Task.FromResult(sc.Status == ServiceControllerStatus.Running);
             }
             catch { }
 
+            // Quando o formato é "processo|janela", usamos o nome do processo e um filtro opcional por título.
             string procName = item;
             string? windowText = null;
             if (item.Contains("|"))
@@ -1067,10 +1194,14 @@ namespace ThGameMode.Screens
             return Task.FromResult(false);
         }
 
+        /// <summary>
+        /// Decide se deve ficar em alto desempenho ou economia com base nos itens monitorados.
+        /// </summary>
         private async Task EvaluateMonitorStateAsync(CancellationToken token)
         {
             bool itemRodando = false;
 
+            // Basta um item monitorado estar ativo para entrar no modo de alto desempenho.
             foreach (var item in _config.ListServices ?? Enumerable.Empty<string>())
             {
                 token.ThrowIfCancellationRequested();
@@ -1094,6 +1225,7 @@ namespace ThGameMode.Screens
             }
             else if (!itemRodando && _modoAltoAtivo)
             {
+                // Ao sair do modo de alto desempenho, aplicamos o plano escolhido para o estado ocioso.
                 EnsureOriginalPowerPlanCaptured();
                 TrocarPlano(_config.PowerPlanClosedApp);
                 _modoAltoAtivo = false;
@@ -1113,11 +1245,17 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Save & Restart Monitor
+        /// <summary>
+        /// Evento do botão Salvar.
+        /// </summary>
         private void btnSave_Click(object sender, EventArgs e)
         {
             SaveConfigAndRestartMonitor();
         }
 
+        /// <summary>
+        /// Reinicia o monitor para garantir que novas configurações passem a valer imediatamente.
+        /// </summary>
         private void SaveConfigAndRestartMonitor()
         {
             SaveConfig();
@@ -1127,6 +1265,9 @@ namespace ThGameMode.Screens
             StartMonitor();
         }
 
+        /// <summary>
+        /// Salva e força uma reavaliação instantânea sem derrubar o loop quando ele já está ativo.
+        /// </summary>
         private void SaveConfigAndRefreshMonitorState()
         {
             SaveConfig();
@@ -1137,6 +1278,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Buttons e Refresh
+        /// <summary>
+        /// Recarrega a lista de itens detectados no sistema.
+        /// </summary>
         private void btnRefresh_Click(object sender, EventArgs e)
         {
             LoadAvailableItems();
@@ -1145,6 +1289,9 @@ namespace ThGameMode.Screens
         #endregion
 
         #region Dispose / FormClosing
+        /// <summary>
+        /// Fechar a janela normalmente apenas minimiza para o tray; sair de verdade depende da flag _quitRequested.
+        /// </summary>
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (!_quitRequested && e.CloseReason == CloseReason.UserClosing)
