@@ -26,5 +26,6 @@ namespace ThGameMode
         /// Lista de serviços ou processos que disparam a troca de modo.
         /// </summary>
         public List<string> ListServices { get; set; } = new();
+        public Dictionary<string, string> ManualExecutablePaths { get; set; } = new();
     }
 }
