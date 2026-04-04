@@ -26,6 +26,7 @@ namespace ThGameMode.Screens
         private List<string> _itemsAvailable = new();
         private List<string> _itemsAdded = new();
         private readonly Dictionary<string, string> _itemDisplayNameCache = new(StringComparer.OrdinalIgnoreCase);
+        private readonly GitHubReleaseChecker _releaseChecker = new();
 
         // Monitor background
         private CancellationTokenSource? _ctsMonitor;
@@ -40,8 +41,11 @@ namespace ThGameMode.Screens
         private Icon? _iconAltoDesempenho;
         private Icon? _iconPadrao;
         private ContextMenuStrip? _trayMenu;
+        private ToolStripMenuItem? _downloadUpdateMenuItem;
         private bool _quitRequested = false;
         private readonly bool _startMinimized;
+        private bool _updateNotificationPendingOpen = false;
+        private string? _latestReleaseUrl;
 
         // Config atual em memória
         private Configuracao _config = new();
@@ -1020,12 +1024,12 @@ namespace ThGameMode.Screens
             }
         }
 
-        private async Task<bool> IsItemRunningAsync(string item)
+        private Task<bool> IsItemRunningAsync(string item)
         {
             try
             {
                 using var sc = new ServiceController(item);
-                return sc.Status == ServiceControllerStatus.Running;
+                return Task.FromResult(sc.Status == ServiceControllerStatus.Running);
             }
             catch { }
 
@@ -1041,9 +1045,9 @@ namespace ThGameMode.Screens
             try
             {
                 var processos = Process.GetProcessesByName(procName);
-                if (processos.Length == 0) return false;
+                if (processos.Length == 0) return Task.FromResult(false);
 
-                if (string.IsNullOrEmpty(windowText)) return true;
+                if (string.IsNullOrEmpty(windowText)) return Task.FromResult(true);
 
                 foreach (var p in processos)
                 {
@@ -1052,7 +1056,7 @@ namespace ThGameMode.Screens
                         if (!string.IsNullOrEmpty(p.MainWindowTitle) &&
                             p.MainWindowTitle.IndexOf(windowText, StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            return true;
+                            return Task.FromResult(true);
                         }
                     }
                     catch { }
@@ -1060,7 +1064,7 @@ namespace ThGameMode.Screens
             }
             catch { }
 
-            return false;
+            return Task.FromResult(false);
         }
 
         private async Task EvaluateMonitorStateAsync(CancellationToken token)
