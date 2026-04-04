@@ -186,6 +186,7 @@
             tabPage1.Controls.Add(lblPowerPlanOpenApp);
             tabPage1.Controls.Add(cboPowerPlanOpenApp);
             tabPage1.Controls.Add(txtSearchService);
+            tabPage1.Controls.Add(btnInstallUninstall);
             tabPage1.Controls.Add(btnSave);
             tabPage1.Controls.Add(nudCheckInterval);
             tabPage1.Controls.Add(dgvListServices);
@@ -268,7 +269,6 @@
             Controls.Add(progressBarConfig);
             Controls.Add(lblLanguage);
             Controls.Add(cboLanguage);
-            Controls.Add(btnInstallUninstall);
             Name = "frmConfig";
             Load += frmConfig_Load;
             ((System.ComponentModel.ISupportInitialize)nudCheckInterval).EndInit();
