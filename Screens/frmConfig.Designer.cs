@@ -48,6 +48,16 @@
             btnSave = new Button();
             tabControl1 = new TabControl();
             tabPage1 = new TabPage();
+            txtSearchServiceOpenClose = new TextBox();
+            button1 = new Button();
+            dgvListServicesOpenClose = new DataGridView();
+            dataGridViewTextBoxColumn1 = new DataGridViewTextBoxColumn();
+            dataGridViewImageColumn1 = new DataGridViewImageColumn();
+            btnRefreshOpenClose = new Button();
+            txtSearchServiceOpenCloseAdded = new TextBox();
+            dgvListServicesOpenCloseAdded = new DataGridView();
+            dataGridViewTextBoxColumn2 = new DataGridViewTextBoxColumn();
+            dataGridViewImageColumn2 = new DataGridViewImageColumn();
             cboPowerPlanClosedApp = new ComboBox();
             lblPowerPlanClosedApp = new Label();
             lblPowerPlanOpenApp = new Label();
@@ -60,12 +70,16 @@
             pararServicoToolStripMenuItem = new ToolStripMenuItem();
             abrirConfiguracoesToolStripMenuItem = new ToolStripMenuItem();
             sairToolStripMenuItem = new ToolStripMenuItem();
+            groupBox1 = new GroupBox();
             ((System.ComponentModel.ISupportInitialize)nudCheckInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)dgvListServicesAdded).BeginInit();
             ((System.ComponentModel.ISupportInitialize)dgvListServices).BeginInit();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvListServicesOpenClose).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dgvListServicesOpenCloseAdded).BeginInit();
             contextMenuStrip.SuspendLayout();
+            groupBox1.SuspendLayout();
             SuspendLayout();
             // 
             // btnInstallUninstall
@@ -181,6 +195,7 @@
             // 
             // tabPage1
             // 
+            tabPage1.Controls.Add(groupBox1);
             tabPage1.Controls.Add(cboPowerPlanClosedApp);
             tabPage1.Controls.Add(lblPowerPlanClosedApp);
             tabPage1.Controls.Add(lblPowerPlanOpenApp);
@@ -197,6 +212,72 @@
             resources.ApplyResources(tabPage1, "tabPage1");
             tabPage1.Name = "tabPage1";
             tabPage1.UseVisualStyleBackColor = true;
+            // 
+            // txtSearchServiceOpenClose
+            // 
+            resources.ApplyResources(txtSearchServiceOpenClose, "txtSearchServiceOpenClose");
+            txtSearchServiceOpenClose.Name = "txtSearchServiceOpenClose";
+            // 
+            // button1
+            // 
+            resources.ApplyResources(button1, "button1");
+            button1.Name = "button1";
+            button1.UseVisualStyleBackColor = true;
+            // 
+            // dgvListServicesOpenClose
+            // 
+            dgvListServicesOpenClose.AllowUserToAddRows = false;
+            dgvListServicesOpenClose.AllowUserToDeleteRows = false;
+            dgvListServicesOpenClose.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dgvListServicesOpenClose.Columns.AddRange(new DataGridViewColumn[] { dataGridViewTextBoxColumn1, dataGridViewImageColumn1 });
+            resources.ApplyResources(dgvListServicesOpenClose, "dgvListServicesOpenClose");
+            dgvListServicesOpenClose.Name = "dgvListServicesOpenClose";
+            dgvListServicesOpenClose.ReadOnly = true;
+            // 
+            // dataGridViewTextBoxColumn1
+            // 
+            resources.ApplyResources(dataGridViewTextBoxColumn1, "dataGridViewTextBoxColumn1");
+            dataGridViewTextBoxColumn1.Name = "dataGridViewTextBoxColumn1";
+            dataGridViewTextBoxColumn1.ReadOnly = true;
+            // 
+            // dataGridViewImageColumn1
+            // 
+            resources.ApplyResources(dataGridViewImageColumn1, "dataGridViewImageColumn1");
+            dataGridViewImageColumn1.Name = "dataGridViewImageColumn1";
+            dataGridViewImageColumn1.ReadOnly = true;
+            // 
+            // btnRefreshOpenClose
+            // 
+            resources.ApplyResources(btnRefreshOpenClose, "btnRefreshOpenClose");
+            btnRefreshOpenClose.Name = "btnRefreshOpenClose";
+            btnRefreshOpenClose.UseVisualStyleBackColor = true;
+            // 
+            // txtSearchServiceOpenCloseAdded
+            // 
+            resources.ApplyResources(txtSearchServiceOpenCloseAdded, "txtSearchServiceOpenCloseAdded");
+            txtSearchServiceOpenCloseAdded.Name = "txtSearchServiceOpenCloseAdded";
+            // 
+            // dgvListServicesOpenCloseAdded
+            // 
+            dgvListServicesOpenCloseAdded.AllowUserToAddRows = false;
+            dgvListServicesOpenCloseAdded.AllowUserToDeleteRows = false;
+            dgvListServicesOpenCloseAdded.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dgvListServicesOpenCloseAdded.Columns.AddRange(new DataGridViewColumn[] { dataGridViewTextBoxColumn2, dataGridViewImageColumn2 });
+            resources.ApplyResources(dgvListServicesOpenCloseAdded, "dgvListServicesOpenCloseAdded");
+            dgvListServicesOpenCloseAdded.Name = "dgvListServicesOpenCloseAdded";
+            dgvListServicesOpenCloseAdded.ReadOnly = true;
+            // 
+            // dataGridViewTextBoxColumn2
+            // 
+            resources.ApplyResources(dataGridViewTextBoxColumn2, "dataGridViewTextBoxColumn2");
+            dataGridViewTextBoxColumn2.Name = "dataGridViewTextBoxColumn2";
+            dataGridViewTextBoxColumn2.ReadOnly = true;
+            // 
+            // dataGridViewImageColumn2
+            // 
+            resources.ApplyResources(dataGridViewImageColumn2, "dataGridViewImageColumn2");
+            dataGridViewImageColumn2.Name = "dataGridViewImageColumn2";
+            dataGridViewImageColumn2.ReadOnly = true;
             // 
             // cboPowerPlanClosedApp
             // 
@@ -261,6 +342,18 @@
             sairToolStripMenuItem.Name = "sairToolStripMenuItem";
             resources.ApplyResources(sairToolStripMenuItem, "sairToolStripMenuItem");
             // 
+            // groupBox1
+            // 
+            groupBox1.Controls.Add(txtSearchServiceOpenClose);
+            groupBox1.Controls.Add(dgvListServicesOpenCloseAdded);
+            groupBox1.Controls.Add(button1);
+            groupBox1.Controls.Add(txtSearchServiceOpenCloseAdded);
+            groupBox1.Controls.Add(dgvListServicesOpenClose);
+            groupBox1.Controls.Add(btnRefreshOpenClose);
+            resources.ApplyResources(groupBox1, "groupBox1");
+            groupBox1.Name = "groupBox1";
+            groupBox1.TabStop = false;
+            // 
             // frmConfig
             // 
             resources.ApplyResources(this, "$this");
@@ -277,7 +370,11 @@
             tabControl1.ResumeLayout(false);
             tabPage1.ResumeLayout(false);
             tabPage1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvListServicesOpenClose).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dgvListServicesOpenCloseAdded).EndInit();
             contextMenuStrip.ResumeLayout(false);
+            groupBox1.ResumeLayout(false);
+            groupBox1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -314,5 +411,16 @@
         private ToolStripMenuItem pararServicoToolStripMenuItem;
         private ToolStripMenuItem abrirConfiguracoesToolStripMenuItem;
         private ToolStripMenuItem sairToolStripMenuItem;
+        private TextBox txtSearchServiceOpenClose;
+        private Button button1;
+        private DataGridView dgvListServicesOpenClose;
+        private DataGridViewTextBoxColumn dataGridViewTextBoxColumn1;
+        private DataGridViewImageColumn dataGridViewImageColumn1;
+        private Button btnRefreshOpenClose;
+        private TextBox txtSearchServiceOpenCloseAdded;
+        private DataGridView dgvListServicesOpenCloseAdded;
+        private DataGridViewTextBoxColumn dataGridViewTextBoxColumn2;
+        private DataGridViewImageColumn dataGridViewImageColumn2;
+        private GroupBox groupBox1;
     }
 }
