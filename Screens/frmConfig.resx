@@ -117,13 +117,17 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="btnInstallUninstall.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left</value>
+  </data>
   <assembly alias="mscorlib" name="mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="btnInstallUninstall.Enabled" type="System.Boolean, mscorlib">
     <value>False</value>
   </data>
   <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
   <data name="btnInstallUninstall.Location" type="System.Drawing.Point, System.Drawing">
-    <value>791, 8</value>
+    <value>475, 218</value>
   </data>
   <data name="btnInstallUninstall.Size" type="System.Drawing.Size, System.Drawing">
     <value>104, 25</value>
@@ -138,10 +142,10 @@
     <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;btnInstallUninstall.Parent" xml:space="preserve">
-    <value>$this</value>
+    <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;btnInstallUninstall.ZOrder" xml:space="preserve">
-    <value>5</value>
+    <value>6</value>
   </data>
   <data name="cboLanguage.Enabled" type="System.Boolean, mscorlib">
     <value>False</value>
@@ -173,7 +177,6 @@
   <data name="lblLanguage.Enabled" type="System.Boolean, mscorlib">
     <value>False</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="lblLanguage.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
   </data>
@@ -229,7 +232,7 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;lblCheckInterval.ZOrder" xml:space="preserve">
-    <value>8</value>
+    <value>10</value>
   </data>
   <data name="nudCheckInterval.Location" type="System.Drawing.Point, System.Drawing">
     <value>106, 16</value>
@@ -250,19 +253,28 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;nudCheckInterval.ZOrder" xml:space="preserve">
-    <value>6</value>
+    <value>8</value>
+  </data>
+  <data name="dgvListServicesAdded.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left, Right</value>
   </data>
   <metadata name="dgvColumnNameAdded.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
+  <data name="dgvColumnNameAdded.HeaderText" xml:space="preserve">
+    <value>Name</value>
+  </data>
   <metadata name="dgvColumnDeleteAdded.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
+  <data name="dgvColumnDeleteAdded.HeaderText" xml:space="preserve">
+    <value> </value>
+  </data>
   <data name="dgvListServicesAdded.Location" type="System.Drawing.Point, System.Drawing">
-    <value>478, 172</value>
+    <value>585, 91</value>
   </data>
   <data name="dgvListServicesAdded.Size" type="System.Drawing.Size, System.Drawing">
-    <value>399, 123</value>
+    <value>401, 123</value>
   </data>
   <data name="dgvListServicesAdded.TabIndex" type="System.Int32, mscorlib">
     <value>6</value>
@@ -277,25 +289,16 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;dgvListServicesAdded.ZOrder" xml:space="preserve">
-    <value>11</value>
+    <value>13</value>
   </data>
-  <metadata name="dgvColumnNameAdded.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-    <value>True</value>
-  </metadata>
-  <data name="dgvColumnNameAdded.HeaderText" xml:space="preserve">
-    <value>Name</value>
-  </data>
-  <metadata name="dgvColumnDeleteAdded.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-    <value>True</value>
-  </metadata>
-  <data name="dgvColumnDeleteAdded.HeaderText" xml:space="preserve">
-    <value> </value>
+  <data name="txtSearchServiceAdded.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left, Right</value>
   </data>
   <data name="txtSearchServiceAdded.Location" type="System.Drawing.Point, System.Drawing">
-    <value>478, 143</value>
+    <value>585, 62</value>
   </data>
   <data name="txtSearchServiceAdded.Size" type="System.Drawing.Size, System.Drawing">
-    <value>399, 23</value>
+    <value>401, 23</value>
   </data>
   <data name="txtSearchServiceAdded.TabIndex" type="System.Int32, mscorlib">
     <value>7</value>
@@ -310,19 +313,28 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;txtSearchServiceAdded.ZOrder" xml:space="preserve">
-    <value>10</value>
+    <value>12</value>
+  </data>
+  <data name="dgvListServices.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left</value>
   </data>
   <metadata name="dgvColumnName.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
+  <data name="dgvColumnName.HeaderText" xml:space="preserve">
+    <value>Name</value>
+  </data>
   <metadata name="dgvColumnAdd.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
+  <data name="dgvColumnAdd.HeaderText" xml:space="preserve">
+    <value />
+  </data>
   <data name="dgvListServices.Location" type="System.Drawing.Point, System.Drawing">
-    <value>6, 172</value>
+    <value>6, 91</value>
   </data>
   <data name="dgvListServices.Size" type="System.Drawing.Size, System.Drawing">
-    <value>411, 123</value>
+    <value>573, 123</value>
   </data>
   <data name="dgvListServices.TabIndex" type="System.Int32, mscorlib">
     <value>9</value>
@@ -337,25 +349,16 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;dgvListServices.ZOrder" xml:space="preserve">
-    <value>7</value>
+    <value>9</value>
   </data>
-  <metadata name="dgvColumnName.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-    <value>True</value>
-  </metadata>
-  <data name="dgvColumnName.HeaderText" xml:space="preserve">
-    <value>Name</value>
-  </data>
-  <metadata name="dgvColumnAdd.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-    <value>True</value>
-  </metadata>
-  <data name="dgvColumnAdd.HeaderText" xml:space="preserve">
-    <value />
+  <data name="txtSearchService.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left</value>
   </data>
   <data name="txtSearchService.Location" type="System.Drawing.Point, System.Drawing">
-    <value>6, 143</value>
+    <value>6, 62</value>
   </data>
   <data name="txtSearchService.Size" type="System.Drawing.Size, System.Drawing">
-    <value>411, 23</value>
+    <value>573, 23</value>
   </data>
   <data name="txtSearchService.TabIndex" type="System.Int32, mscorlib">
     <value>10</value>
@@ -370,13 +373,16 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;txtSearchService.ZOrder" xml:space="preserve">
-    <value>4</value>
+    <value>5</value>
+  </data>
+  <data name="btnRefresh.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left</value>
   </data>
   <data name="btnRefresh.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
   </data>
   <data name="btnRefresh.Location" type="System.Drawing.Point, System.Drawing">
-    <value>6, 301</value>
+    <value>6, 220</value>
   </data>
   <data name="btnRefresh.Size" type="System.Drawing.Size, System.Drawing">
     <value>75, 23</value>
@@ -397,13 +403,13 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;btnRefresh.ZOrder" xml:space="preserve">
-    <value>9</value>
+    <value>11</value>
   </data>
   <data name="progressBarConfig.Location" type="System.Drawing.Point, System.Drawing">
-    <value>-1, 442</value>
+    <value>-1, 573</value>
   </data>
   <data name="progressBarConfig.Size" type="System.Drawing.Size, System.Drawing">
-    <value>914, 10</value>
+    <value>1017, 10</value>
   </data>
   <data name="progressBarConfig.TabIndex" type="System.Int32, mscorlib">
     <value>12</value>
@@ -420,11 +426,14 @@
   <data name="&gt;&gt;progressBarConfig.ZOrder" xml:space="preserve">
     <value>2</value>
   </data>
+  <data name="btnSave.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Right</value>
+  </data>
   <data name="btnSave.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
   </data>
   <data name="btnSave.Location" type="System.Drawing.Point, System.Drawing">
-    <value>802, 334</value>
+    <value>916, 474</value>
   </data>
   <data name="btnSave.Size" type="System.Drawing.Size, System.Drawing">
     <value>75, 23</value>
@@ -445,122 +454,217 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;btnSave.ZOrder" xml:space="preserve">
-    <value>5</value>
+    <value>7</value>
   </data>
-  <data name="&gt;&gt;tabPage1.Name" xml:space="preserve">
-    <value>tabPage1</value>
+  <data name="tabControl1.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left, Right</value>
   </data>
-  <data name="&gt;&gt;tabPage1.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="groupBox1.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left, Right</value>
   </data>
-  <data name="&gt;&gt;tabPage1.Parent" xml:space="preserve">
-    <value>tabControl1</value>
+  <data name="txtSearchServiceOpenClose.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left</value>
   </data>
-  <data name="&gt;&gt;tabPage1.ZOrder" xml:space="preserve">
+  <data name="txtSearchServiceOpenClose.Location" type="System.Drawing.Point, System.Drawing">
+    <value>9, 22</value>
+  </data>
+  <data name="txtSearchServiceOpenClose.Size" type="System.Drawing.Size, System.Drawing">
+    <value>564, 23</value>
+  </data>
+  <data name="txtSearchServiceOpenClose.TabIndex" type="System.Int32, mscorlib">
+    <value>22</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenClose.Name" xml:space="preserve">
+    <value>txtSearchServiceOpenClose</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenClose.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenClose.Parent" xml:space="preserve">
+    <value>groupBox1</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenClose.ZOrder" xml:space="preserve">
     <value>0</value>
   </data>
-  <data name="tabControl1.Location" type="System.Drawing.Point, System.Drawing">
-    <value>14, 39</value>
+  <data name="dgvListServicesOpenCloseAdded.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left, Right</value>
   </data>
-  <data name="tabControl1.Size" type="System.Drawing.Size, System.Drawing">
-    <value>891, 391</value>
+  <metadata name="dataGridViewTextBoxColumn2.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <data name="dataGridViewTextBoxColumn2.HeaderText" xml:space="preserve">
+    <value>Name</value>
   </data>
-  <data name="tabControl1.TabIndex" type="System.Int32, mscorlib">
-    <value>14</value>
+  <metadata name="dataGridViewImageColumn2.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <data name="dataGridViewImageColumn2.HeaderText" xml:space="preserve">
+    <value> </value>
   </data>
-  <data name="&gt;&gt;tabControl1.Name" xml:space="preserve">
-    <value>tabControl1</value>
+  <data name="dgvListServicesOpenCloseAdded.Location" type="System.Drawing.Point, System.Drawing">
+    <value>579, 51</value>
   </data>
-  <data name="&gt;&gt;tabControl1.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TabControl, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="dgvListServicesOpenCloseAdded.Size" type="System.Drawing.Size, System.Drawing">
+    <value>395, 123</value>
   </data>
-  <data name="&gt;&gt;tabControl1.Parent" xml:space="preserve">
-    <value>$this</value>
+  <data name="dgvListServicesOpenCloseAdded.TabIndex" type="System.Int32, mscorlib">
+    <value>19</value>
   </data>
-  <data name="&gt;&gt;tabControl1.ZOrder" xml:space="preserve">
+  <data name="&gt;&gt;dgvListServicesOpenCloseAdded.Name" xml:space="preserve">
+    <value>dgvListServicesOpenCloseAdded</value>
+  </data>
+  <data name="&gt;&gt;dgvListServicesOpenCloseAdded.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataGridView, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;dgvListServicesOpenCloseAdded.Parent" xml:space="preserve">
+    <value>groupBox1</value>
+  </data>
+  <data name="&gt;&gt;dgvListServicesOpenCloseAdded.ZOrder" xml:space="preserve">
     <value>1</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanClosedApp.Name" xml:space="preserve">
-    <value>cboPowerPlanClosedApp</value>
+  <data name="button1.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanClosedApp.Type" xml:space="preserve">
-    <value>System.Windows.Forms.ComboBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="button1.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanClosedApp.Parent" xml:space="preserve">
-    <value>tabPage1</value>
+  <data name="button1.Location" type="System.Drawing.Point, System.Drawing">
+    <value>469, 178</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanClosedApp.ZOrder" xml:space="preserve">
-    <value>0</value>
+  <data name="button1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>104, 25</value>
   </data>
-  <data name="&gt;&gt;lblPowerPlanClosedApp.Name" xml:space="preserve">
-    <value>lblPowerPlanClosedApp</value>
+  <data name="button1.TabIndex" type="System.Int32, mscorlib">
+    <value>18</value>
   </data>
-  <data name="&gt;&gt;lblPowerPlanClosedApp.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="&gt;&gt;button1.Name" xml:space="preserve">
+    <value>button1</value>
   </data>
-  <data name="&gt;&gt;lblPowerPlanClosedApp.Parent" xml:space="preserve">
-    <value>tabPage1</value>
+  <data name="&gt;&gt;button1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="&gt;&gt;lblPowerPlanClosedApp.ZOrder" xml:space="preserve">
-    <value>1</value>
+  <data name="&gt;&gt;button1.Parent" xml:space="preserve">
+    <value>groupBox1</value>
   </data>
-  <data name="&gt;&gt;lblPowerPlanOpenApp.Name" xml:space="preserve">
-    <value>lblPowerPlanOpenApp</value>
-  </data>
-  <data name="&gt;&gt;lblPowerPlanOpenApp.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Label, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="&gt;&gt;lblPowerPlanOpenApp.Parent" xml:space="preserve">
-    <value>tabPage1</value>
-  </data>
-  <data name="&gt;&gt;lblPowerPlanOpenApp.ZOrder" xml:space="preserve">
+  <data name="&gt;&gt;button1.ZOrder" xml:space="preserve">
     <value>2</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanOpenApp.Name" xml:space="preserve">
-    <value>cboPowerPlanOpenApp</value>
+  <data name="txtSearchServiceOpenCloseAdded.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left, Right</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanOpenApp.Type" xml:space="preserve">
-    <value>System.Windows.Forms.ComboBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="txtSearchServiceOpenCloseAdded.Location" type="System.Drawing.Point, System.Drawing">
+    <value>579, 22</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanOpenApp.Parent" xml:space="preserve">
-    <value>tabPage1</value>
+  <data name="txtSearchServiceOpenCloseAdded.Size" type="System.Drawing.Size, System.Drawing">
+    <value>395, 23</value>
   </data>
-  <data name="&gt;&gt;cboPowerPlanOpenApp.ZOrder" xml:space="preserve">
+  <data name="txtSearchServiceOpenCloseAdded.TabIndex" type="System.Int32, mscorlib">
+    <value>20</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenCloseAdded.Name" xml:space="preserve">
+    <value>txtSearchServiceOpenCloseAdded</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenCloseAdded.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenCloseAdded.Parent" xml:space="preserve">
+    <value>groupBox1</value>
+  </data>
+  <data name="&gt;&gt;txtSearchServiceOpenCloseAdded.ZOrder" xml:space="preserve">
     <value>3</value>
   </data>
-  <data name="tabPage1.Location" type="System.Drawing.Point, System.Drawing">
-    <value>4, 24</value>
+  <data name="dgvListServicesOpenClose.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="tabPage1.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>3, 3, 3, 3</value>
+  <metadata name="dataGridViewTextBoxColumn1.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <data name="dataGridViewTextBoxColumn1.HeaderText" xml:space="preserve">
+    <value>Name</value>
   </data>
-  <data name="tabPage1.Size" type="System.Drawing.Size, System.Drawing">
-    <value>883, 363</value>
+  <metadata name="dataGridViewImageColumn1.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <data name="dataGridViewImageColumn1.HeaderText" xml:space="preserve">
+    <value />
   </data>
-  <data name="tabPage1.TabIndex" type="System.Int32, mscorlib">
-    <value>0</value>
+  <data name="dgvListServicesOpenClose.Location" type="System.Drawing.Point, System.Drawing">
+    <value>9, 51</value>
   </data>
-  <data name="tabPage1.Text" xml:space="preserve">
-    <value>Settings</value>
+  <data name="dgvListServicesOpenClose.Size" type="System.Drawing.Size, System.Drawing">
+    <value>564, 123</value>
   </data>
-  <data name="&gt;&gt;tabPage1.Name" xml:space="preserve">
+  <data name="dgvListServicesOpenClose.TabIndex" type="System.Int32, mscorlib">
+    <value>21</value>
+  </data>
+  <data name="&gt;&gt;dgvListServicesOpenClose.Name" xml:space="preserve">
+    <value>dgvListServicesOpenClose</value>
+  </data>
+  <data name="&gt;&gt;dgvListServicesOpenClose.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataGridView, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;dgvListServicesOpenClose.Parent" xml:space="preserve">
+    <value>groupBox1</value>
+  </data>
+  <data name="&gt;&gt;dgvListServicesOpenClose.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
+  <data name="btnRefreshOpenClose.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="btnRefreshOpenClose.Location" type="System.Drawing.Point, System.Drawing">
+    <value>9, 180</value>
+  </data>
+  <data name="btnRefreshOpenClose.Size" type="System.Drawing.Size, System.Drawing">
+    <value>75, 23</value>
+  </data>
+  <data name="btnRefreshOpenClose.TabIndex" type="System.Int32, mscorlib">
+    <value>23</value>
+  </data>
+  <data name="btnRefreshOpenClose.Text" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="&gt;&gt;btnRefreshOpenClose.Name" xml:space="preserve">
+    <value>btnRefreshOpenClose</value>
+  </data>
+  <data name="&gt;&gt;btnRefreshOpenClose.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;btnRefreshOpenClose.Parent" xml:space="preserve">
+    <value>groupBox1</value>
+  </data>
+  <data name="&gt;&gt;btnRefreshOpenClose.ZOrder" xml:space="preserve">
+    <value>5</value>
+  </data>
+  <data name="groupBox1.Location" type="System.Drawing.Point, System.Drawing">
+    <value>6, 249</value>
+  </data>
+  <data name="groupBox1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>980, 219</value>
+  </data>
+  <data name="groupBox1.TabIndex" type="System.Int32, mscorlib">
+    <value>24</value>
+  </data>
+  <data name="groupBox1.Text" xml:space="preserve">
+    <value>Open and Close Application</value>
+  </data>
+  <data name="&gt;&gt;groupBox1.Name" xml:space="preserve">
+    <value>groupBox1</value>
+  </data>
+  <data name="&gt;&gt;groupBox1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.GroupBox, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;groupBox1.Parent" xml:space="preserve">
     <value>tabPage1</value>
   </data>
-  <data name="&gt;&gt;tabPage1.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="&gt;&gt;tabPage1.Parent" xml:space="preserve">
-    <value>tabControl1</value>
-  </data>
-  <data name="&gt;&gt;tabPage1.ZOrder" xml:space="preserve">
+  <data name="&gt;&gt;groupBox1.ZOrder" xml:space="preserve">
     <value>0</value>
   </data>
   <data name="cboPowerPlanClosedApp.Location" type="System.Drawing.Point, System.Drawing">
-    <value>210, 94</value>
+    <value>778, 13</value>
   </data>
   <data name="cboPowerPlanClosedApp.Size" type="System.Drawing.Size, System.Drawing">
-    <value>184, 23</value>
+    <value>185, 23</value>
   </data>
   <data name="cboPowerPlanClosedApp.TabIndex" type="System.Int32, mscorlib">
     <value>17</value>
@@ -575,7 +679,7 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;cboPowerPlanClosedApp.ZOrder" xml:space="preserve">
-    <value>0</value>
+    <value>1</value>
   </data>
   <data name="lblPowerPlanClosedApp.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -584,7 +688,7 @@
     <value>NoControl</value>
   </data>
   <data name="lblPowerPlanClosedApp.Location" type="System.Drawing.Point, System.Drawing">
-    <value>15, 99</value>
+    <value>583, 18</value>
   </data>
   <data name="lblPowerPlanClosedApp.Size" type="System.Drawing.Size, System.Drawing">
     <value>194, 15</value>
@@ -605,7 +709,7 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;lblPowerPlanClosedApp.ZOrder" xml:space="preserve">
-    <value>1</value>
+    <value>2</value>
   </data>
   <data name="lblPowerPlanOpenApp.AutoSize" type="System.Boolean, mscorlib">
     <value>True</value>
@@ -614,7 +718,7 @@
     <value>NoControl</value>
   </data>
   <data name="lblPowerPlanOpenApp.Location" type="System.Drawing.Point, System.Drawing">
-    <value>15, 60</value>
+    <value>177, 18</value>
   </data>
   <data name="lblPowerPlanOpenApp.Size" type="System.Drawing.Size, System.Drawing">
     <value>184, 15</value>
@@ -635,10 +739,10 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;lblPowerPlanOpenApp.ZOrder" xml:space="preserve">
-    <value>2</value>
+    <value>3</value>
   </data>
   <data name="cboPowerPlanOpenApp.Location" type="System.Drawing.Point, System.Drawing">
-    <value>210, 57</value>
+    <value>372, 15</value>
   </data>
   <data name="cboPowerPlanOpenApp.Size" type="System.Drawing.Size, System.Drawing">
     <value>184, 23</value>
@@ -656,7 +760,56 @@
     <value>tabPage1</value>
   </data>
   <data name="&gt;&gt;cboPowerPlanOpenApp.ZOrder" xml:space="preserve">
-    <value>3</value>
+    <value>4</value>
+  </data>
+  <data name="tabPage1.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 24</value>
+  </data>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="tabPage1.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>3, 3, 3, 3</value>
+  </data>
+  <data name="tabPage1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1006, 500</value>
+  </data>
+  <data name="tabPage1.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="tabPage1.Text" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="&gt;&gt;tabPage1.Name" xml:space="preserve">
+    <value>tabPage1</value>
+  </data>
+  <data name="&gt;&gt;tabPage1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;tabPage1.Parent" xml:space="preserve">
+    <value>tabControl1</value>
+  </data>
+  <data name="&gt;&gt;tabPage1.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="tabControl1.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 39</value>
+  </data>
+  <data name="tabControl1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1014, 528</value>
+  </data>
+  <data name="tabControl1.TabIndex" type="System.Int32, mscorlib">
+    <value>14</value>
+  </data>
+  <data name="&gt;&gt;tabControl1.Name" xml:space="preserve">
+    <value>tabControl1</value>
+  </data>
+  <data name="&gt;&gt;tabControl1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabControl, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;tabControl1.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;tabControl1.ZOrder" xml:space="preserve">
+    <value>1</value>
   </data>
   <metadata name="notifyIcon.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>17, 17</value>
@@ -664,21 +817,6 @@
   <metadata name="contextMenuStrip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>125, 17</value>
   </metadata>
-  <data name="contextMenuStrip.Size" type="System.Drawing.Size, System.Drawing">
-    <value>179, 136</value>
-  </data>
-  <data name="&gt;&gt;contextMenuStrip.Name" xml:space="preserve">
-    <value>contextMenuStrip</value>
-  </data>
-  <data name="&gt;&gt;contextMenuStrip.Type" xml:space="preserve">
-    <value>System.Windows.Forms.ContextMenuStrip, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="notifyIcon.Text" xml:space="preserve">
-    <value>notifyIcon</value>
-  </data>
-  <data name="notifyIcon.Visible" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
   <data name="ativarDeteccaoToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
     <value>178, 22</value>
   </data>
@@ -715,14 +853,32 @@
   <data name="sairToolStripMenuItem.Text" xml:space="preserve">
     <value>Sair</value>
   </data>
+  <data name="contextMenuStrip.Size" type="System.Drawing.Size, System.Drawing">
+    <value>179, 136</value>
+  </data>
+  <data name="&gt;&gt;contextMenuStrip.Name" xml:space="preserve">
+    <value>contextMenuStrip</value>
+  </data>
+  <data name="&gt;&gt;contextMenuStrip.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ContextMenuStrip, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="notifyIcon.Text" xml:space="preserve">
+    <value>notifyIcon</value>
+  </data>
+  <data name="notifyIcon.Visible" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
   <metadata name="$this.Localizable" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
+  </metadata>
+  <metadata name="$this.TrayHeight" type="System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>25</value>
   </metadata>
   <data name="$this.AutoScaleDimensions" type="System.Drawing.SizeF, System.Drawing">
     <value>7, 15</value>
   </data>
   <data name="$this.ClientSize" type="System.Drawing.Size, System.Drawing">
-    <value>911, 452</value>
+    <value>1010, 584</value>
   </data>
   <data name="$this.Icon" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
@@ -5209,6 +5365,30 @@
     <value>dgvColumnAdd</value>
   </data>
   <data name="&gt;&gt;dgvColumnAdd.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataGridViewImageColumn, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewTextBoxColumn2.Name" xml:space="preserve">
+    <value>dataGridViewTextBoxColumn2</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewTextBoxColumn2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataGridViewTextBoxColumn, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewImageColumn2.Name" xml:space="preserve">
+    <value>dataGridViewImageColumn2</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewImageColumn2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataGridViewImageColumn, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewTextBoxColumn1.Name" xml:space="preserve">
+    <value>dataGridViewTextBoxColumn1</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewTextBoxColumn1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataGridViewTextBoxColumn, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewImageColumn1.Name" xml:space="preserve">
+    <value>dataGridViewImageColumn1</value>
+  </data>
+  <data name="&gt;&gt;dataGridViewImageColumn1.Type" xml:space="preserve">
     <value>System.Windows.Forms.DataGridViewImageColumn, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;notifyIcon.Name" xml:space="preserve">

@@ -10,12 +10,18 @@ using System.Threading.Tasks;
 
 namespace ThGameMode.Utils
 {
+    /// <summary>
+    /// Consulta a release mais recente do projeto no GitHub e compara com a versão em execução.
+    /// </summary>
     internal sealed class GitHubReleaseChecker
     {
         private const string Owner = "thalisonss";
         private const string Repository = "ThGameMode";
         private static readonly Uri LatestReleaseApiUri = new($"https://api.github.com/repos/{Owner}/{Repository}/releases/latest");
 
+        /// <summary>
+        /// Busca a última release publicada e devolve um resultado pronto para a UI consumir.
+        /// </summary>
         public async Task<ReleaseCheckResult> CheckForUpdateAsync(Version currentVersion, CancellationToken cancellationToken = default)
         {
             using var client = CreateHttpClient();
@@ -30,6 +36,7 @@ namespace ThGameMode.Utils
 
             response.EnsureSuccessStatusCode();
 
+            // A API do GitHub devolve muito mais dados do que usamos; desserializamos só o necessário.
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             var release = await JsonSerializer.DeserializeAsync<GitHubReleaseResponse>(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -54,6 +61,7 @@ namespace ThGameMode.Utils
         {
             var client = new HttpClient
             {
+                // Timeout curto para não travar a experiência da bandeja ao consultar a internet.
                 Timeout = TimeSpan.FromSeconds(8)
             };
 
@@ -62,6 +70,9 @@ namespace ThGameMode.Utils
             return client;
         }
 
+        /// <summary>
+        /// Normaliza tags como "v1.2.3-beta" para um formato que <see cref="Version"/> consiga interpretar.
+        /// </summary>
         private static bool TryParseVersion(string tagName, out Version version)
         {
             version = new Version(0, 0, 0, 0);
@@ -84,6 +95,9 @@ namespace ThGameMode.Utils
             return true;
         }
 
+        /// <summary>
+        /// Recorte mínimo do JSON da API de releases do GitHub.
+        /// </summary>
         private sealed class GitHubReleaseResponse
         {
             [JsonPropertyName("tag_name")]
@@ -100,6 +114,9 @@ namespace ThGameMode.Utils
         }
     }
 
+    /// <summary>
+    /// Resultado consolidado da verificação de atualização.
+    /// </summary>
     internal sealed record ReleaseCheckResult(
         bool IsUpdateAvailable,
         Version CurrentVersion,
@@ -110,6 +127,9 @@ namespace ThGameMode.Utils
         string? ReleaseNotes,
         string? FailureReason)
     {
+        /// <summary>
+        /// Cria um resultado de falha controlada quando a release não pode ser validada.
+        /// </summary>
         public static ReleaseCheckResult NotAvailable(Version currentVersion, string reason) =>
             new(false, currentVersion, null, null, null, null, null, reason);
     }
