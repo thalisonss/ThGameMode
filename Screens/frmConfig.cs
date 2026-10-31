@@ -78,9 +78,186 @@ namespace ThGameMode.Screens
         {
             _startMinimized = startMinimized;
             InitializeComponent();
+            ApplyModernLayout();
             InitializeTray();
             InitializeManualExecutableButtons();
             InitializeOpenCloseControls();
+        }
+
+        /// <summary>
+        /// Reorganiza a tela gerada pelo Designer sem alterar o .resx.
+        /// Os controles continuam os mesmos; só mudam texto, cores, tamanho e posição.
+        /// </summary>
+        private void ApplyModernLayout()
+        {
+            Font = new Font("Segoe UI", 9F);
+            BackColor = Color.FromArgb(245, 247, 250);
+            MinimumSize = new Size(1080, 720);
+            ClientSize = new Size(1120, 760);
+            Text = "ThGameMode";
+            StartPosition = FormStartPosition.CenterScreen;
+
+            // Idioma ainda não está ligado à lógica; fica fora da tela para não poluir o layout.
+            cboLanguage.Visible = false;
+            lblLanguage.Visible = false;
+            progressBarConfig.Visible = false;
+
+            tabControl1.Location = new Point(16, 16);
+            tabControl1.Size = new Size(ClientSize.Width - 32, ClientSize.Height - 32);
+            tabControl1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            tabControl1.Font = new Font("Segoe UI", 9.5F);
+
+            tabPage1.Text = "Configurações";
+            tabPage1.BackColor = Color.FromArgb(245, 247, 250);
+            tabPage1.Padding = new Padding(12);
+            tabPage1.AutoScroll = true;
+            tabPage1.AutoScrollMinSize = new Size(980, 680);
+
+            StyleLabel(lblCheckInterval, "Intervalo (segundos)");
+            lblCheckInterval.Location = new Point(16, 18);
+            nudCheckInterval.Location = new Point(16, 40);
+            nudCheckInterval.Size = new Size(90, 27);
+            nudCheckInterval.Font = new Font("Segoe UI", 10F);
+            if (nudCheckInterval.Minimum < 5)
+                nudCheckInterval.Minimum = 5;
+
+            StyleLabel(lblPowerPlanOpenApp, "Plano com jogo aberto");
+            lblPowerPlanOpenApp.Location = new Point(130, 18);
+            cboPowerPlanOpenApp.Location = new Point(130, 40);
+            cboPowerPlanOpenApp.Size = new Size(360, 27);
+            cboPowerPlanOpenApp.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            cboPowerPlanOpenApp.DropDownStyle = ComboBoxStyle.DropDownList;
+
+            StyleLabel(lblPowerPlanClosedApp, "Plano com jogo fechado");
+            lblPowerPlanClosedApp.Location = new Point(510, 18);
+            lblPowerPlanClosedApp.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            cboPowerPlanClosedApp.Location = new Point(510, 40);
+            cboPowerPlanClosedApp.Size = new Size(360, 27);
+            cboPowerPlanClosedApp.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            cboPowerPlanClosedApp.DropDownStyle = ComboBoxStyle.DropDownList;
+
+            StyleButton(btnSave, "Salvar", Color.FromArgb(33, 150, 243));
+            btnSave.Location = new Point(tabPage1.ClientSize.Width - 130, 36);
+            btnSave.Size = new Size(110, 32);
+            btnSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+            StyleSearchBox(txtSearchService, "Buscar processos disponíveis");
+            txtSearchService.Location = new Point(16, 84);
+            txtSearchService.Size = new Size(470, 27);
+            txtSearchService.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+
+            StyleGrid(dgvListServices);
+            dgvListServices.Location = new Point(16, 118);
+            dgvListServices.Size = new Size(470, 250);
+            dgvListServices.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+
+            StyleButton(btnRefresh, "Atualizar", Color.FromArgb(96, 125, 139));
+            btnRefresh.Location = new Point(16, 376);
+            btnRefresh.Size = new Size(100, 30);
+            btnRefresh.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+
+            StyleButton(btnInstallUninstall, "Adicionar .exe", Color.FromArgb(76, 175, 80));
+            btnInstallUninstall.Location = new Point(124, 376);
+            btnInstallUninstall.Size = new Size(120, 30);
+            btnInstallUninstall.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+
+            StyleSearchBox(txtSearchServiceAdded, "Buscar processos monitorados");
+            txtSearchServiceAdded.Location = new Point(510, 84);
+            txtSearchServiceAdded.Size = new Size(470, 27);
+            txtSearchServiceAdded.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+            StyleGrid(dgvListServicesAdded);
+            dgvListServicesAdded.Location = new Point(510, 118);
+            dgvListServicesAdded.Size = new Size(470, 288);
+            dgvListServicesAdded.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            groupBox1.Text = "  Fechar ao jogar e reabrir depois";
+            groupBox1.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+            groupBox1.ForeColor = Color.FromArgb(55, 71, 79);
+            groupBox1.Location = new Point(16, 420);
+            groupBox1.Size = new Size(tabPage1.ClientSize.Width - 32, 210);
+            groupBox1.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            StyleSearchBox(txtSearchServiceOpenClose, "Buscar para fechar");
+            txtSearchServiceOpenClose.Location = new Point(12, 28);
+            txtSearchServiceOpenClose.Size = new Size(450, 27);
+            txtSearchServiceOpenClose.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+
+            StyleGrid(dgvListServicesOpenClose);
+            dgvListServicesOpenClose.Location = new Point(12, 62);
+            dgvListServicesOpenClose.Size = new Size(450, 100);
+            dgvListServicesOpenClose.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+
+            StyleButton(btnRefreshOpenClose, "Atualizar", Color.FromArgb(96, 125, 139));
+            btnRefreshOpenClose.Location = new Point(12, 170);
+            btnRefreshOpenClose.Size = new Size(100, 28);
+            btnRefreshOpenClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+
+            StyleButton(button1, "Adicionar .exe", Color.FromArgb(76, 175, 80));
+            button1.Location = new Point(120, 170);
+            button1.Size = new Size(120, 28);
+            button1.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+
+            StyleSearchBox(txtSearchServiceOpenCloseAdded, "Selecionados para fechar");
+            txtSearchServiceOpenCloseAdded.Location = new Point(490, 28);
+            txtSearchServiceOpenCloseAdded.Size = new Size(450, 27);
+            txtSearchServiceOpenCloseAdded.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+            StyleGrid(dgvListServicesOpenCloseAdded);
+            dgvListServicesOpenCloseAdded.Location = new Point(490, 62);
+            dgvListServicesOpenCloseAdded.Size = new Size(450, 136);
+            dgvListServicesOpenCloseAdded.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            dgvColumnName.HeaderText = "Disponíveis";
+            dgvColumnNameAdded.HeaderText = "Monitorados";
+            dataGridViewTextBoxColumn1.HeaderText = "Disponíveis";
+            dataGridViewTextBoxColumn2.HeaderText = "Serão fechados";
+        }
+
+        private static void StyleLabel(Label label, string text)
+        {
+            label.Text = text;
+            label.AutoSize = true;
+            label.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            label.ForeColor = Color.FromArgb(55, 71, 79);
+        }
+
+        private static void StyleButton(Button button, string text, Color backColor)
+        {
+            button.Text = text;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.BackColor = backColor;
+            button.ForeColor = Color.White;
+            button.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            button.Cursor = Cursors.Hand;
+            button.UseVisualStyleBackColor = false;
+        }
+
+        private static void StyleSearchBox(TextBox textBox, string placeholder)
+        {
+            textBox.Font = new Font("Segoe UI", 9F);
+            textBox.PlaceholderText = placeholder;
+            textBox.BorderStyle = BorderStyle.FixedSingle;
+        }
+
+        private static void StyleGrid(DataGridView grid)
+        {
+            grid.BackgroundColor = Color.White;
+            grid.BorderStyle = BorderStyle.None;
+            grid.EnableHeadersVisualStyles = false;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(55, 71, 79);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(55, 71, 79);
+            grid.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(227, 242, 253);
+            grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(33, 33, 33);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 250, 250);
+            grid.RowHeadersVisible = false;
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            grid.GridColor = Color.FromArgb(224, 224, 224);
+            grid.RowTemplate.Height = 28;
         }
 
         #region Form Load / Init
@@ -1464,51 +1641,98 @@ namespace ThGameMode.Screens
         }
 
         /// <summary>
-        /// Verifica se o item configurado está ativo, tratando tanto serviços quanto processos.
+        /// Foto dos processos e serviços em execução, para o monitor decidir sem consultar o Windows item a item.
         /// </summary>
-        private Task<bool> IsItemRunningAsync(string item)
+        private sealed class RunningSnapshot
         {
+            public HashSet<string> ProcessNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public HashSet<string> ServiceNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, List<string>> WindowTitles { get; } = new(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static RunningSnapshot CaptureRunningSnapshot(bool includeServices)
+        {
+            var snapshot = new RunningSnapshot();
+
+            if (includeServices)
+            {
+                try
+                {
+                    foreach (var service in ServiceController.GetServices())
+                    {
+                        try
+                        {
+                            if (service.Status == ServiceControllerStatus.Running)
+                                snapshot.ServiceNames.Add(service.ServiceName);
+                        }
+                        catch { }
+                        finally
+                        {
+                            service.Dispose();
+                        }
+                    }
+                }
+                catch { }
+            }
+
             try
             {
-                // Primeiro tentamos como serviço porque essa consulta é direta e barata.
-                using var sc = new ServiceController(item);
-                return Task.FromResult(sc.Status == ServiceControllerStatus.Running);
+                foreach (var process in Process.GetProcesses())
+                {
+                    try
+                    {
+                        string name = process.ProcessName;
+                        if (string.IsNullOrWhiteSpace(name))
+                            continue;
+
+                        snapshot.ProcessNames.Add(name);
+
+                        string title = process.MainWindowTitle;
+                        if (string.IsNullOrWhiteSpace(title))
+                            continue;
+
+                        if (!snapshot.WindowTitles.TryGetValue(name, out var titles))
+                        {
+                            titles = new List<string>();
+                            snapshot.WindowTitles[name] = titles;
+                        }
+
+                        titles.Add(title);
+                    }
+                    catch { }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                }
             }
             catch { }
 
-            // Quando o formato é "processo|janela", usamos o nome do processo e um filtro opcional por título.
+            return snapshot;
+        }
+
+        private static bool IsItemRunning(string item, RunningSnapshot snapshot)
+        {
+            if (snapshot.ServiceNames.Contains(item))
+                return true;
+
             string procName = item;
             string? windowText = null;
-            if (item.Contains("|"))
+            if (item.Contains('|'))
             {
                 var parts = item.Split('|', 2);
                 procName = parts[0];
                 windowText = parts[1];
             }
 
-            try
-            {
-                var processos = Process.GetProcessesByName(procName);
-                if (processos.Length == 0) return Task.FromResult(false);
+            if (!snapshot.ProcessNames.Contains(procName))
+                return false;
 
-                if (string.IsNullOrEmpty(windowText)) return Task.FromResult(true);
+            if (string.IsNullOrEmpty(windowText))
+                return true;
 
-                foreach (var p in processos)
-                {
-                    try
-                    {
-                        if (!string.IsNullOrEmpty(p.MainWindowTitle) &&
-                            p.MainWindowTitle.IndexOf(windowText, StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            return Task.FromResult(true);
-                        }
-                    }
-                    catch { }
-                }
-            }
-            catch { }
-
-            return Task.FromResult(false);
+            return snapshot.WindowTitles.TryGetValue(procName, out var titles) &&
+                   titles.Any(title => title.IndexOf(windowText, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         /// <summary>
@@ -1519,14 +1743,16 @@ namespace ThGameMode.Screens
             bool itemRodando = false;
             string? itemDetectado = null;
 
+            // Uma única foto do sistema em vez de N consultas individuais.
+            var snapshot = CaptureRunningSnapshot(true);
+
             // Basta um item monitorado estar ativo para entrar no modo de alto desempenho.
             foreach (var item in _config.ListServices ?? Enumerable.Empty<string>())
             {
                 token.ThrowIfCancellationRequested();
                 if (string.IsNullOrWhiteSpace(item)) continue;
 
-                bool rodando = await IsItemRunningAsync(item);
-                if (rodando)
+                if (IsItemRunning(item, snapshot))
                 {
                     itemRodando = true;
                     itemDetectado = item;
@@ -1561,6 +1787,8 @@ namespace ThGameMode.Screens
             {
                 ApplyTrayVisualState(false);
             }
+
+            await Task.CompletedTask;
         }
 
         private void CloseConfiguredApplications()
@@ -1584,7 +1812,8 @@ namespace ThGameMode.Screens
             {
                 try
                 {
-                    if (IsItemRunningAsync(item).GetAwaiter().GetResult())
+                    var snapshot = CaptureRunningSnapshot(false);
+                    if (IsItemRunning(item, snapshot))
                     {
                         _closedApplicationsToReopen.Remove(item);
                         continue;
