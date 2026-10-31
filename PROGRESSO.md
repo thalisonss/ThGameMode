@@ -131,9 +131,11 @@ dotnet run
 ### Novos Arquivos:
 - `Utils/UsageStatistics.cs` (393 linhas)
 - `Utils/ConfigBackupManager.cs` (247 linhas)
+- `Utils/ToastNotifier.cs` (220 linhas)
 
 ### Arquivos Modificados:
-- `Screens/frmConfig.cs` (integrado sistema de stats e backups)
+- `Screens/frmConfig.cs` (integrado sistema de stats, backups e notificações)
+- `ThGameMode.csproj` (pacote Microsoft.Toolkit.Uwp.Notifications adicionado)
 
 ### Documentação:
 - `MELHORIAS_APLICADAS.md`
