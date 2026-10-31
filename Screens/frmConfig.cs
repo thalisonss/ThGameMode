@@ -788,12 +788,9 @@ namespace ThGameMode.Screens
                     if (_downloadUpdateMenuItem != null)
                         _downloadUpdateMenuItem.Enabled = true;
 
-                    AppLogger.Write(AppLogger.LogLevel.Info, $"Nova versão encontrada: {result.LatestTag}");
-                    _trayIcon?.ShowBalloonTip(
-                        4000,
-                        "Atualização disponível",
-                        $"Nova versão encontrada ({result.LatestTag}). Clique para abrir a release no GitHub.",
-                        ToolTipIcon.Info);
+                    var versaoDisplay = result.LatestTag ?? "desconhecida";
+                    AppLogger.Write(AppLogger.LogLevel.Info, $"Nova versão encontrada: {versaoDisplay}");
+                    ToastNotifier.MostrarAtualizacaoDisponivel(versaoDisplay);
 
                     // Em uso interativo, podemos oferecer a abertura imediata da página da release.
                     if (!_startMinimized && Visible && WindowState != FormWindowState.Minimized)
@@ -1518,7 +1515,7 @@ namespace ThGameMode.Screens
             catch (Exception ex)
             {
                 AppLogger.Write(AppLogger.LogLevel.Error, "Erro ao trocar plano de energia: " + ex.Message);
-                _trayIcon?.ShowBalloonTip(1500, "ThGameMode", $"Erro ao trocar plano: {ex.Message}", ToolTipIcon.Error);
+                ToastNotifier.MostrarErro($"Erro ao trocar plano: {ex.Message}");
             }
         }
 
@@ -1615,7 +1612,7 @@ namespace ThGameMode.Screens
                 _monitorActive = true;
                 SyncMonitorToggleMenuItem();
                 _monitorTask = Task.Run(() => MonitorLoopAsync(_ctsMonitor.Token));
-                _trayIcon?.ShowBalloonTip(1000, "ThGameMode", "Detecção ativada", ToolTipIcon.Info);
+                ToastNotifier.MostrarDeteccaoAtivada();
             }
             catch (Exception ex)
             {
@@ -1658,7 +1655,7 @@ namespace ThGameMode.Screens
 
                 if (!_quitRequested && _trayIcon != null)
                 {
-                    _trayIcon.ShowBalloonTip(1000, "ThGameMode", "Detecção desativada", ToolTipIcon.Info);
+                    ToastNotifier.MostrarModoEconomia();
                     _trayIcon.Icon = _iconPadrao;
                     _trayIcon.Text = "ThGameMode — Desativado";
                 }
@@ -1682,7 +1679,7 @@ namespace ThGameMode.Screens
                 catch (Exception ex)
                 {
                     AppLogger.Write(AppLogger.LogLevel.Error, "Erro no monitor: " + ex.Message);
-                    _trayIcon?.ShowBalloonTip(1000, "ThGameMode", $"Erro no monitor: {ex.Message}", ToolTipIcon.Warning);
+                    ToastNotifier.MostrarErro($"Erro no monitor: {ex.Message}");
                 }
 
                 // Nunca deixamos o intervalo cair abaixo de 1 segundo para evitar loop agressivo.
