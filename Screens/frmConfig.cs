@@ -55,6 +55,7 @@ namespace ThGameMode.Screens
         private ContextMenuStrip? _trayMenu;
         private ToolStripMenuItem? _downloadUpdateMenuItem;
         private ToolStripMenuItem? _monitorToggleMenuItem;
+        private ToolStripMenuItem? _statsMenuItem;
         private bool _quitRequested = false;
         private readonly bool _startMinimized;
         private bool _updateNotificationPendingOpen = false;
@@ -68,6 +69,9 @@ namespace ThGameMode.Screens
         private string _ultimoProcessoDetectado = "Nenhum";
         private DateTime _ultimaMudanca = DateTime.Now;
         private System.Windows.Forms.Timer? _tooltipTimer;
+
+        // Estatísticas de uso
+        private readonly UsageStatistics _statistics = new();
 
 
 
@@ -332,6 +336,13 @@ namespace ThGameMode.Screens
             _monitorToggleMenuItem.Click += (s, e) => ToggleMonitor(_monitorToggleMenuItem);
             _trayMenu.Items.Add(_monitorToggleMenuItem);
             _trayMenu.Items.Add(new ToolStripSeparator());
+
+            // Menu de estatísticas
+            _statsMenuItem = new ToolStripMenuItem("📊 Estatísticas");
+            _statsMenuItem.Click += (s, e) => MostrarEstatisticas();
+            _trayMenu.Items.Add(_statsMenuItem);
+
+            _trayMenu.Items.Add(new ToolStripSeparator());
             _trayMenu.Items.Add("Abrir configurações", null, (s, e) => ShowWindow());
             _trayMenu.Items.Add("Verificar atualizações", null, async (s, e) => await CheckForUpdatesAsync(true));
 
@@ -370,9 +381,47 @@ namespace ThGameMode.Screens
                 if (_updateNotificationPendingOpen)
                     OpenLatestReleasePage();
             };
+        }
 
+        /// <summary>
+        /// Mostra janela com estatísticas detalhadas.
+        /// </summary>
+        private void MostrarEstatisticas()
+        {
+            var tempoSessao = _statistics.GetTempoSessao();
+            var tempoModoAtual = _statistics.GetTempoModoAtual();
+            var top5 = _statistics.GetTop5Jogos();
 
+            var mensagem = new System.Text.StringBuilder();
+            mensagem.AppendLine("📊 ESTATÍSTICAS DA SESSÃO");
+            mensagem.AppendLine();
+            mensagem.AppendLine($"⏱️ Tempo de sessão: {UsageStatistics.FormatarTempo(tempoSessao)}");
+            mensagem.AppendLine($"⚡ Tempo em alto desempenho: {UsageStatistics.FormatarTempo(_statistics.TempoTotalAltoDesempenho)}");
+            mensagem.AppendLine($"🍃 Tempo em economia: {UsageStatistics.FormatarTempo(_statistics.TempoTotalEconomia)}");
+            mensagem.AppendLine($"🔄 Trocas de plano: {_statistics.ContadorTrocasPlano}");
+            mensagem.AppendLine($"❌ Apps fechados: {_statistics.ContadorAppsFechados}");
+            mensagem.AppendLine($"✅ Apps reabertos: {_statistics.ContadorAppsAbertos}");
+            mensagem.AppendLine();
 
+            if (top5.Any())
+            {
+                mensagem.AppendLine("🎮 TOP JOGOS:");
+                for (int i = 0; i < top5.Count; i++)
+                {
+                    var (jogo, tempo) = top5[i];
+                    mensagem.AppendLine($"  {i + 1}. {jogo} - {UsageStatistics.FormatarTempo(tempo)}");
+                }
+            }
+            else
+            {
+                mensagem.AppendLine("🎮 Nenhum jogo detectado ainda");
+            }
+
+            MessageBox.Show(
+                mensagem.ToString(),
+                "ThGameMode - Estatísticas",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         private static Icon LoadIconFromAppDirectory(string iconFileName)
@@ -961,6 +1010,9 @@ namespace ThGameMode.Screens
 
                 string json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json, Encoding.UTF8);
+
+                // Cria backup automático após salvar
+                ConfigBackupManager.CriarBackup(_configPath);
 
                 AppLogger.Write(AppLogger.LogLevel.Info, "Configuração salva com sucesso.");
             }
@@ -1768,6 +1820,7 @@ namespace ThGameMode.Screens
                 TrocarPlano(_config.PowerPlanOpenApp);
                 CloseConfiguredApplications();
                 _modoAltoAtivo = true;
+                _statistics.RegistrarTrocaModo(true, itemDetectado);
                 UpdateTrayStatus(true, itemDetectado is null ? string.Empty : GetItemDisplayName(itemDetectado));
             }
             else if (!itemRodando && _modoAltoAtivo)
@@ -1777,6 +1830,7 @@ namespace ThGameMode.Screens
                 TrocarPlano(_config.PowerPlanClosedApp);
                 ReopenClosedApplications();
                 _modoAltoAtivo = false;
+                _statistics.RegistrarTrocaModo(false, _ultimoProcessoDetectado);
                 UpdateTrayStatus(false);
             }
             else if (itemRodando)
@@ -1801,6 +1855,7 @@ namespace ThGameMode.Screens
                 if (CloseApplicationProcesses(item))
                 {
                     _closedApplicationsToReopen.Add(item);
+                    _statistics.RegistrarAppFechado(item);
                     AppLogger.Write(AppLogger.LogLevel.Info, $"Aplicativo fechado para o modo de alto desempenho: {item}");
                 }
             }
@@ -1833,6 +1888,7 @@ namespace ThGameMode.Screens
                     });
 
                     _closedApplicationsToReopen.Remove(item);
+                    _statistics.RegistrarAppReaberto(item);
                     AppLogger.Write(AppLogger.LogLevel.Info, $"Aplicativo reaberto ao voltar para economia: {item}");
                 }
                 catch (Exception ex)
