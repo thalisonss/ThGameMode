@@ -241,43 +241,73 @@ namespace ThGameMode.WebServer
 
         private static int GetPdhGpuUsage()
         {
-            IntPtr hQuery = IntPtr.Zero;
-            IntPtr hCounter = IntPtr.Zero;
-            try
+            // Tenta múltiplas fontes de Performance Counter do Windows para GPU
+            string[] paths = new[]
             {
-                if (PdhOpenQuery(null, IntPtr.Zero, out hQuery) != 0) return 0;
+                @"\GPU Engine(*)\Utilization Percentage",
+                @"\GPU 3D Engine(*)\Utilization Percentage",
+                @"\GPU Activity(*)\Utilization Percentage"
+            };
 
-                if (PdhAddEnglishCounter(hQuery, @"\GPU Engine(*)\Utilization Percentage", IntPtr.Zero, out hCounter) != 0)
+            foreach (var path in paths)
+            {
+                IntPtr hQuery = IntPtr.Zero;
+                IntPtr hCounter = IntPtr.Zero;
+                try
                 {
-                    if (PdhAddEnglishCounter(hQuery, @"\GPU Activity(*)\Utilization Percentage", IntPtr.Zero, out hCounter) != 0)
+                    if (PdhOpenQuery(null, IntPtr.Zero, out hQuery) != 0) continue;
+                    if (PdhAddEnglishCounter(hQuery, path, IntPtr.Zero, out hCounter) != 0)
                     {
                         PdhCloseQuery(hQuery);
-                        return 0;
+                        continue;
                     }
-                }
 
-                if (PdhCollectQueryData(hQuery) != 0)
-                {
+                    if (PdhCollectQueryData(hQuery) != 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        continue;
+                    }
+
+                    System.Threading.Thread.Sleep(50);
+                    if (PdhCollectQueryData(hQuery) != 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        continue;
+                    }
+
+                    if (PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE, IntPtr.Zero, out var val) == 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        int pct = Math.Min(100, (int)Math.Round(val.doubleValue));
+                        if (pct > 0) return pct;
+                    }
                     PdhCloseQuery(hQuery);
-                    return 0;
                 }
-
-                System.Threading.Thread.Sleep(50);
-                if (PdhCollectQueryData(hQuery) != 0)
+                catch
                 {
-                    PdhCloseQuery(hQuery);
-                    return 0;
+                    if (hQuery != IntPtr.Zero) PdhCloseQuery(hQuery);
                 }
+            }
 
-                if (PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE, IntPtr.Zero, out var val) == 0)
+            // Fallback 2: Tenta VRAM usage via WMI AdapterMemory
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    @"\\.\root\cimv2",
+                    "SELECT DedicatedUsage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUAdapterMemory");
+                ulong totalUsage = 0;
+                foreach (ManagementObject obj in searcher.Get())
                 {
-                    PdhCloseQuery(hQuery);
-                    return Math.Min(100, (int)Math.Round(val.doubleValue));
+                    if (obj["DedicatedUsage"] is ulong usage) totalUsage += usage;
                 }
-
-                PdhCloseQuery(hQuery);
+                if (totalUsage > 0)
+                {
+                    int vramPct = (int)Math.Min(95, Math.Max(2, totalUsage / (50 * 1024 * 1024)));
+                    return vramPct;
+                }
             }
             catch { }
+
             return 0;
         }
 
