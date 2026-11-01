@@ -159,6 +159,20 @@ namespace ThGameMode.Screens
             startupItem.Click += (s, e) => ToggleStartup(startupItem);
             _trayMenu.Items.Add(startupItem);
 
+            // ── Dashboard Web ─────────────────────────────────────────────
+            var menuDashboard = new ToolStripMenuItem("🖥️ Abrir Dashboard");
+            menuDashboard.Click += (s, e) =>
+            {
+                var ip = Program.DashboardServer?.LocalIp ?? "localhost";
+                var url = $"http://{ip}:5000";
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            };
+            _trayMenu.Items.Add(menuDashboard);
+
             _trayMenu.Items.Add(new ToolStripSeparator());
             _trayMenu.Items.Add("Sair", null, (s, e) =>
             {
@@ -358,11 +372,12 @@ namespace ThGameMode.Screens
 
             string modo = altoDesempenhoAtivo ? "Alto desempenho" : "Economia";
             string tempoFormatado = tempo.ToString(@"hh\:mm\:ss");
+            string ip = Program.DashboardServer?.LocalIp ?? "127.0.0.1";
 
             string tooltip =
                 $"Modo atual: {modo}\n" +
                 $"Tempo ativo: {tempoFormatado}\n" +
-                $"Último jogo: {_ultimoProcessoDetectado}\n" +
+                $"Dashboard: http://{ip}:5000\n" +
                 $"Última mudança: {_ultimaMudanca:HH:mm:ss}";
 
             // O Windows limita o texto do NotifyIcon; por isso truncamos o tooltip.
