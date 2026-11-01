@@ -168,7 +168,7 @@ namespace ThGameMode.WebServer
             catch { return (0, 0, 0, 0); }
         }
 
-        // ── GPU (via PerformanceCounter GPU Engine) ──────────────────────────
+        // ── GPU (via PDH Performance Counters pdh.dll) ───────────────────────
         private static (string Name, int Percent, int TempC) GetGpu()
         {
             string name = "N/A";
@@ -189,35 +189,11 @@ namespace ThGameMode.WebServer
 
             try
             {
-                var category = new PerformanceCounterCategory("GPU Engine");
-                var instanceNames = category.GetInstanceNames();
-                float total = 0;
-                foreach (var instance in instanceNames)
-                {
-                    if (instance.Contains("engtype_3D") || instance.Contains("engtype_Render") || instance.Contains("engtype_Cuda"))
-                    {
-                        using var pc = new PerformanceCounter("GPU Engine", "% Utilization Percentage", instance, true);
-                        total += pc.NextValue();
-                    }
-                }
-                percent = Math.Min(100, (int)Math.Round(total));
+                percent = GetPdhGpuUsage();
             }
             catch
             {
-                // Fallback para WMI caso PerformanceCounter falhe
-                try
-                {
-                    using var searcher = new ManagementObjectSearcher(
-                        @"\\.\root\cimv2",
-                        "SELECT UtilizationDefault FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine");
-                    int max = 0;
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        if (obj["UtilizationDefault"] is ulong v && (int)v > max) max = (int)v;
-                    }
-                    percent = Math.Min(max, 100);
-                }
-                catch { }
+                percent = 0;
             }
 
             try
@@ -235,6 +211,74 @@ namespace ThGameMode.WebServer
             catch { }
 
             return (name, percent, temp);
+        }
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern int PdhOpenQuery(string? szDataSource, IntPtr dwUserData, out IntPtr phQuery);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern int PdhAddEnglishCounter(IntPtr hQuery, string szFullCounterPath, IntPtr dwUserData, out IntPtr phCounter);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true)]
+        private static extern int PdhCollectQueryData(IntPtr hQuery);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true)]
+        private static extern int PdhGetFormattedCounterValue(IntPtr hCounter, uint dwFormat, IntPtr lpdwType, out PDH_FMT_COUNTERVALUE pValue);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true)]
+        private static extern int PdhCloseQuery(IntPtr hQuery);
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+        private struct PDH_FMT_COUNTERVALUE
+        {
+            [System.Runtime.InteropServices.FieldOffset(0)] public uint CStatus;
+            [System.Runtime.InteropServices.FieldOffset(8)] public double doubleValue;
+            [System.Runtime.InteropServices.FieldOffset(8)] public long longValue;
+            [System.Runtime.InteropServices.FieldOffset(8)] public IntPtr PtrValue;
+        }
+
+        private const uint PDH_FMT_DOUBLE = 0x00000001;
+
+        private static int GetPdhGpuUsage()
+        {
+            IntPtr hQuery = IntPtr.Zero;
+            IntPtr hCounter = IntPtr.Zero;
+            try
+            {
+                if (PdhOpenQuery(null, IntPtr.Zero, out hQuery) != 0) return 0;
+
+                if (PdhAddEnglishCounter(hQuery, @"\GPU Engine(*)\Utilization Percentage", IntPtr.Zero, out hCounter) != 0)
+                {
+                    if (PdhAddEnglishCounter(hQuery, @"\GPU Activity(*)\Utilization Percentage", IntPtr.Zero, out hCounter) != 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        return 0;
+                    }
+                }
+
+                if (PdhCollectQueryData(hQuery) != 0)
+                {
+                    PdhCloseQuery(hQuery);
+                    return 0;
+                }
+
+                System.Threading.Thread.Sleep(50);
+                if (PdhCollectQueryData(hQuery) != 0)
+                {
+                    PdhCloseQuery(hQuery);
+                    return 0;
+                }
+
+                if (PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE, IntPtr.Zero, out var val) == 0)
+                {
+                    PdhCloseQuery(hQuery);
+                    return Math.Min(100, (int)Math.Round(val.doubleValue));
+                }
+
+                PdhCloseQuery(hQuery);
+            }
+            catch { }
+            return 0;
         }
 
         // ── Uptime ───────────────────────────────────────────────────────────
