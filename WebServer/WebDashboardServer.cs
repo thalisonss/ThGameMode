@@ -42,6 +42,9 @@ namespace ThGameMode.WebServer
 
             _cts = new CancellationTokenSource();
 
+            // Garante o urlacl para escutar em todas as interfaces sem precisar de admin toda vez
+            EnsureUrlAcl();
+
             _listener = new HttpListener();
             // http://*:5000/ aceita qualquer Host header (IP, hostname, localhost)
             // sem rejeitar com HTTP 400 "Invalid Hostname" como faz o prefixo http://+:5000/
@@ -49,9 +52,9 @@ namespace ThGameMode.WebServer
             try { _listener.Start(); }
             catch (HttpListenerException ex)
             {
-                // Porta pode já estar em uso; tenta apenas localhost como fallback
+                // Fallback: só localhost (urlacl não registrado ou porta em uso)
                 AppLogger.Write(AppLogger.LogLevel.Warning,
-                    $"Falha ao ouvir em *:5000 ({ex.Message}). Tentando só localhost.");
+                    $"Falha ao ouvir em *:5000 ({ex.Message}). Modo só localhost ativo.");
                 _listener = new HttpListener();
                 _listener.Prefixes.Add("http://localhost:5000/");
                 _listener.Start();
@@ -67,6 +70,49 @@ namespace ThGameMode.WebServer
 
             AppLogger.Write(AppLogger.LogLevel.Info,
                 $"Servidor Dashboard iniciado — http://{LocalIp}:5000");
+        }
+
+        /// <summary>
+        /// Registra http://*:5000/ no urlacl do Windows com elevação de privilégio, se ainda não estiver registrado.
+        /// Necessário para o HttpListener escutar em todas as interfaces sem rodar como Administrador.
+        /// </summary>
+        private static void EnsureUrlAcl()
+        {
+            try
+            {
+                // Verifica se já existe
+                var check = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = "http show urlacl url=http://*:5000/",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                var output = check!.StandardOutput.ReadToEnd();
+                check.WaitForExit();
+
+                if (output.Contains("*:5000")) return; // já registrado
+
+                // Registra pedindo elevação (UAC)
+                string user = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+                var reg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = $"http add urlacl url=http://*:5000/ user=\"{user}\"",
+                    Verb = "runas",
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                });
+                reg?.WaitForExit(5000);
+
+                AppLogger.Write(AppLogger.LogLevel.Info, "urlacl http://*:5000/ registrado com sucesso.");
+            }
+            catch (Exception ex)
+            {
+                // Se o usuário cancelar o UAC ou falhar, o servidor tenta assim mesmo
+                AppLogger.Write(AppLogger.LogLevel.Warning, $"EnsureUrlAcl: {ex.Message}");
+            }
         }
 
         /// <summary>Encerra o servidor graciosamente.</summary>
