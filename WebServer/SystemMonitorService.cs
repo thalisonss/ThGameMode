@@ -168,7 +168,7 @@ namespace ThGameMode.WebServer
             catch { return (0, 0, 0, 0); }
         }
 
-        // ── GPU (via WMI Performance) ────────────────────────────────────────
+        // ── GPU (via PerformanceCounter GPU Engine) ──────────────────────────
         private static (string Name, int Percent, int TempC) GetGpu()
         {
             string name = "N/A";
@@ -189,19 +189,36 @@ namespace ThGameMode.WebServer
 
             try
             {
-                // Uso da GPU via EngineUtilization (funciona para AMD/Intel/NVIDIA via WDDM)
-                using var searcher = new ManagementObjectSearcher(
-                    @"\\.\root\cimv2",
-                    "SELECT UtilizationDefault FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine " +
-                    "WHERE Name LIKE '%engtype_3D%'");
-                int max = 0;
-                foreach (ManagementObject obj in searcher.Get())
+                var category = new PerformanceCounterCategory("GPU Engine");
+                var instanceNames = category.GetInstanceNames();
+                float total = 0;
+                foreach (var instance in instanceNames)
                 {
-                    if (obj["UtilizationDefault"] is ulong v && (int)v > max) max = (int)v;
+                    if (instance.Contains("engtype_3D") || instance.Contains("engtype_Render") || instance.Contains("engtype_Cuda"))
+                    {
+                        using var pc = new PerformanceCounter("GPU Engine", "% Utilization Percentage", instance, true);
+                        total += pc.NextValue();
+                    }
                 }
-                percent = Math.Min(max, 100);
+                percent = Math.Min(100, (int)Math.Round(total));
             }
-            catch { }
+            catch
+            {
+                // Fallback para WMI caso PerformanceCounter falhe
+                try
+                {
+                    using var searcher = new ManagementObjectSearcher(
+                        @"\\.\root\cimv2",
+                        "SELECT UtilizationDefault FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine");
+                    int max = 0;
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        if (obj["UtilizationDefault"] is ulong v && (int)v > max) max = (int)v;
+                    }
+                    percent = Math.Min(max, 100);
+                }
+                catch { }
+            }
 
             try
             {
