@@ -43,13 +43,15 @@ namespace ThGameMode.WebServer
             _cts = new CancellationTokenSource();
 
             _listener = new HttpListener();
-            _listener.Prefixes.Add("http://+:5000/");    // escuta em todos os IPs
+            // http://*:5000/ aceita qualquer Host header (IP, hostname, localhost)
+            // sem rejeitar com HTTP 400 "Invalid Hostname" como faz o prefixo http://+:5000/
+            _listener.Prefixes.Add("http://*:5000/");
             try { _listener.Start(); }
             catch (HttpListenerException ex)
             {
-                // Porta pode já estar em uso; tenta apenas localhost
+                // Porta pode já estar em uso; tenta apenas localhost como fallback
                 AppLogger.Write(AppLogger.LogLevel.Warning,
-                    $"Falha ao ouvir em 0.0.0.0:5000 ({ex.Message}). Tentando só localhost.");
+                    $"Falha ao ouvir em *:5000 ({ex.Message}). Tentando só localhost.");
                 _listener = new HttpListener();
                 _listener.Prefixes.Add("http://localhost:5000/");
                 _listener.Start();
