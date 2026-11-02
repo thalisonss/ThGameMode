@@ -68,6 +68,22 @@ function updateAll() {
                     }
                 }
 
+                // Consumo de energia
+                if (d.power) {
+                    var p = d.power;
+                    setText('power-total', Math.round(p.total_watts) + ' W');
+                    setText('power-cpu', Math.round(p.cpu_watts));
+                    setText('power-gpu', Math.round(p.gpu_watts));
+                    setText('power-memory', Math.round(p.memory_watts));
+                    setText('power-disk', Math.round(p.disk_watts));
+                    setText('power-mb', Math.round(p.motherboard_watts));
+                    setText('power-fans', Math.round(p.fans_watts));
+                    setText('power-other', Math.round(p.peripherals_watts));
+                    setText('power-wall', Math.round(p.wall_watts));
+                    setText('power-session', Number(p.session_kwh || 0).toFixed(3));
+                    setText('power-total-energy', Number(p.total_kwh || 0).toFixed(3));
+                }
+
                 // Clima
                 if (d.weather && d.weather.temp !== undefined) {
                     document.getElementById('weather-temp').textContent = d.weather.temp + '°C';
@@ -78,6 +94,11 @@ function updateAll() {
         }
     };
     xhr.send();
+}
+
+function setText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value;
 }
 
 function clamp(v) {

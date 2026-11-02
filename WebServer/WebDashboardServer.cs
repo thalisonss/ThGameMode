@@ -196,6 +196,23 @@ namespace ThGameMode.WebServer
                             pch_temperature = s.MbPchTempC,
                             aux_temperature = s.MbAuxTempC
                         },
+                        power = new
+                        {
+                            total_watts = s.Power.TotalWatts,
+                            wall_watts = s.Power.WallWatts,
+                            cpu_watts = s.Power.CpuWatts,
+                            gpu_watts = s.Power.GpuWatts,
+                            memory_watts = s.Power.MemoryWatts,
+                            disk_watts = s.Power.DiskWatts,
+                            motherboard_watts = s.Power.MotherboardWatts,
+                            fans_watts = s.Power.FansWatts,
+                            peripherals_watts = s.Power.PeripheralsWatts,
+                            cpu_tdp_watts = s.Power.CpuTdpWatts,
+                            gpu_tdp_watts = s.Power.GpuTdpWatts,
+                            session_kwh = s.Power.SessionKwh,
+                            total_kwh = s.Power.TotalKwh,
+                            estimated = s.Power.IsEstimated
+                        },
                         weather = new
                         {
                             temp = int.TryParse(s.WeatherTemp, out var t) ? (object)t : s.WeatherTemp,

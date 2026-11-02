@@ -11,6 +11,8 @@ namespace ThGameMode.WebServer
         {
             // Limita a largura das barras de progresso entre 0 e 100
             static int Bar(double v) => (int)System.Math.Max(0, System.Math.Min(100, v));
+            static string W(double v) => System.Math.Round(v).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+            static string Kwh(double v) => v.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
 
             return $@"<!DOCTYPE html>
 <html lang=""pt-BR"">
@@ -72,6 +74,26 @@ namespace ThGameMode.WebServer
                     <span>Usado: <strong id=""disk-used"">{s.DiskUsedGb}</strong> GB</span>
                     <span>Livre: <strong id=""disk-free"">{s.DiskFreeGb}</strong> GB</span>
                     <span>Temp: <strong id=""disk-temp"">{s.DiskTempC}</strong>°C</span>
+                </div>
+            </div>
+        </div>
+
+        <div class=""grid grid-1"">
+            <div class=""card power-card"">
+                <div class=""card-header""><h2>⚡ Consumo de Energia</h2><span class=""value power"" id=""power-total"">{W(s.Power.TotalWatts)} W</span></div>
+                <div class=""power-breakdown"">
+                    <span>CPU <strong id=""power-cpu"">{W(s.Power.CpuWatts)}</strong> W</span>
+                    <span>GPU <strong id=""power-gpu"">{W(s.Power.GpuWatts)}</strong> W</span>
+                    <span>RAM <strong id=""power-memory"">{W(s.Power.MemoryWatts)}</strong> W</span>
+                    <span>Disco <strong id=""power-disk"">{W(s.Power.DiskWatts)}</strong> W</span>
+                    <span>Placa-mãe <strong id=""power-mb"">{W(s.Power.MotherboardWatts)}</strong> W</span>
+                    <span>Fans <strong id=""power-fans"">{W(s.Power.FansWatts)}</strong> W</span>
+                    <span>Outros <strong id=""power-other"">{W(s.Power.PeripheralsWatts)}</strong> W</span>
+                </div>
+                <div class=""card-footer"">
+                    <span>Nesta sessão: <strong id=""power-session"">{Kwh(s.Power.SessionKwh)}</strong> kWh</span>
+                    <span>Total com o PC ligado: <strong id=""power-total-energy"" title=""Soma de todo o consumo medido enquanto o PC esteve ligado"">{Kwh(s.Power.TotalKwh)}</strong> kWh</span>
+                    <span>Na tomada: ~<strong id=""power-wall"">{W(s.Power.WallWatts)}</strong> W</span>
                 </div>
             </div>
         </div>

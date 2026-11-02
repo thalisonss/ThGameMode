@@ -1,4 +1,4 @@
-:root{--bg:#0a0b15;--card:#161728;--txt:#e0e2eb;--txtMut:#8a8d98;--cpu:#4dabf7;--gpu:#ff6b35;--mem:#51cf66;--disk:#fcc419;--swap:#da77f2;--weather:#4fc3f7;--ip:#a9dc76}
+:root{--bg:#0a0b15;--card:#161728;--txt:#e0e2eb;--txtMut:#8a8d98;--cpu:#4dabf7;--gpu:#ff6b35;--mem:#51cf66;--disk:#fcc419;--swap:#da77f2;--weather:#4fc3f7;--ip:#a9dc76;--power:#ffd43b}
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
 html,body{width:100vw;height:100vh;overflow:hidden;background:var(--bg);color:var(--txt)}
 .status-bar{display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.2rem 0.5rem}
@@ -16,12 +16,15 @@ html,body{width:100vw;height:100vh;overflow:hidden;background:var(--bg);color:va
 .card-header{display:flex;align-items:center;justify-content:space-between}
 .card-header h2{font-size:1rem;font-weight:600}
 .value{font-size:1.3rem;font-weight:700}
-.value.cpu{color:var(--cpu)}.value.gpu{color:var(--gpu)}.value.mem{color:var(--mem)}.value.disk{color:var(--disk)}.value.swap{color:var(--swap)}
+.value.cpu{color:var(--cpu)}.value.gpu{color:var(--gpu)}.value.mem{color:var(--mem)}.value.disk{color:var(--disk)}.value.swap{color:var(--swap)}.value.power{color:var(--power)}
 .ip-val{color:var(--ip);font-size:1rem;font-weight:600;font-family:monospace}
 .progress-bar{width:100%;height:6px;border-radius:999px;background:rgba(255,255,255,0.08)}
 .progress-fill{height:100%;border-radius:inherit;transition:width 0.3s}
 .progress-fill.cpu{background:var(--cpu)}.progress-fill.gpu{background:var(--gpu)}.progress-fill.mem{background:var(--mem)}.progress-fill.disk{background:var(--disk)}.progress-fill.swap{background:var(--swap)}
 .card-footer{display:flex;gap:1rem;font-size:0.78rem;color:var(--txtMut)}
 .card-footer strong{color:var(--txt)}
+.power-breakdown{display:flex;flex-wrap:wrap;gap:0.25rem 1rem;font-size:0.78rem;color:var(--txtMut)}
+.power-breakdown strong{color:var(--txt)}
 .uptime-card .value,.ip-card .value{font-size:1rem}
 @media(max-width:480px){html,body{overflow:auto;height:auto}.main-content{padding:0 0.6rem 0.8rem}.grid-2{grid-template-columns:1fr}}
+@media(max-height:700px){html,body{height:auto;min-height:100vh;overflow:auto}}

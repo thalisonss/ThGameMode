@@ -19,14 +19,16 @@ namespace ThGameMode.WebServer
         private volatile SystemStats _current = new();
         private readonly System.Threading.Timer _timer;
         private readonly HttpClient _http;
+        private readonly PowerConsumptionService _power = new();
 
         // Cache de clima
         private SystemStats.WeatherInfo? _weatherCache;
         private DateTime _weatherCacheTime = DateTime.MinValue;
         private const int WeatherCacheMinutes = 10;
 
-        // Cache de frequência de CPU (WMI é lento, consultar de 10 em 10 s)
+        // Cache de informações da CPU (WMI é lento, consultar de 10 em 10 s)
         private double _cpuFreqGhzCache;
+        private string _cpuNameCache = string.Empty;
         private DateTime _cpuFreqTime = DateTime.MinValue;
 
         // PerformanceCounter de CPU (amostragem em 1 s como no psutil)
@@ -56,6 +58,10 @@ namespace ThGameMode.WebServer
                 var uptime = GetUptime();
                 var weather = await GetWeatherAsync();
                 var ip = GetLocalIp();
+                var power = _power.Update(
+                    cpu.Percent, cpu.Name, cpu.Count,
+                    gpu.Percent, gpu.Name,
+                    mem.TotalGb, disk.Drives);
 
                 int cpuTemp = GetCpuTemp(cpu.Percent);
                 int memTemp = GetMemTemp(mem.Percent);
@@ -88,6 +94,7 @@ namespace ThGameMode.WebServer
                     MbPchTempC = Math.Clamp(mbPchTemp, 30, 75),
                     MbAuxTempC = Math.Clamp(mbAuxTemp, 28, 70),
                     Uptime = uptime,
+                    Power = power,
                     WeatherTemp = weather?.Temp ?? "--",
                     WeatherDesc = weather?.Desc ?? "Sem internet",
                     LocalIp = ip,
@@ -101,7 +108,7 @@ namespace ThGameMode.WebServer
         }
 
         // ── CPU ─────────────────────────────────────────────────────────────
-        private (double Percent, int Count, double FreqGhz) GetCpu()
+        private (double Percent, int Count, double FreqGhz, string Name) GetCpu()
         {
             double percent = 0;
             try
@@ -113,28 +120,32 @@ namespace ThGameMode.WebServer
             }
             catch { }
 
-            double freqGhz = _cpuFreqGhzCache;
             if ((DateTime.Now - _cpuFreqTime).TotalSeconds > 10)
             {
-                freqGhz = GetCpuFreqGhzWmi();
-                _cpuFreqGhzCache = freqGhz;
+                var info = GetCpuInfoWmi();
+                _cpuFreqGhzCache = info.FreqGhz;
+                if (!string.IsNullOrWhiteSpace(info.Name)) _cpuNameCache = info.Name;
                 _cpuFreqTime = DateTime.Now;
             }
 
-            return (percent, Environment.ProcessorCount, freqGhz);
+            return (percent, Environment.ProcessorCount, _cpuFreqGhzCache, _cpuNameCache);
         }
 
-        private static double GetCpuFreqGhzWmi()
+        private static (double FreqGhz, string Name) GetCpuInfoWmi()
         {
             try
             {
                 using var searcher = new ManagementObjectSearcher(
-                    "SELECT CurrentClockSpeed FROM Win32_Processor");
+                    "SELECT Name, CurrentClockSpeed FROM Win32_Processor");
                 foreach (ManagementObject obj in searcher.Get())
-                    return Math.Round((double)(uint)obj["CurrentClockSpeed"] / 1000.0, 1);
+                {
+                    double freq = Math.Round((double)(uint)obj["CurrentClockSpeed"] / 1000.0, 1);
+                    string name = obj["Name"]?.ToString() ?? string.Empty;
+                    return (freq, name);
+                }
             }
             catch { }
-            return 0;
+            return (0, string.Empty);
         }
 
         // ── Memória RAM ──────────────────────────────────────────────────────
@@ -161,7 +172,7 @@ namespace ThGameMode.WebServer
         }
 
         // ── Disco ────────────────────────────────────────────────────────────
-        private static (double Percent, double UsedGb, double FreeGb, double TotalGb) GetDisk()
+        private static (double Percent, double UsedGb, double FreeGb, double TotalGb, int Drives) GetDisk()
         {
             try
             {
@@ -178,9 +189,9 @@ namespace ThGameMode.WebServer
                 double usedGb = Math.Round(usedBytes / 1e9, 1);
                 double pct = totalGb > 0 ? Math.Round(usedGb / totalGb * 100, 1) : 0;
 
-                return (pct, usedGb, freeGb, totalGb);
+                return (pct, usedGb, freeGb, totalGb, drives.Length);
             }
-            catch { return (0, 0, 0, 0); }
+            catch { return (0, 0, 0, 0, 0); }
         }
 
         // ── GPU (via PDH Performance Counters pdh.dll) ───────────────────────
@@ -445,6 +456,7 @@ namespace ThGameMode.WebServer
         {
             _timer.Dispose();
             _cpuCounter.Dispose();
+            _power.Dispose();
             _http.Dispose();
         }
     }
@@ -478,6 +490,7 @@ namespace ThGameMode.WebServer
         public int MbAuxTempC { get; init; }
 
         public string Uptime { get; init; } = "--";
+        public PowerUsage Power { get; init; } = new();
         public string WeatherTemp { get; init; } = "--";
         public string WeatherDesc { get; init; } = "--";
         public string LocalIp { get; init; } = "127.0.0.1";
