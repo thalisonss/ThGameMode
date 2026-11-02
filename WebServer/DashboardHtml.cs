@@ -26,6 +26,7 @@ namespace ThGameMode.WebServer
     <div class=""status-bar"">
         <span class=""dot online""></span>
         <span id=""timestamp"" class=""time-big"">{s.Timestamp}</span>
+        <span class=""uptime-badge"" style=""margin-left: auto; font-size: 0.9rem; color: #fff; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px;"">⏱️ <strong id=""uptime"">{s.Uptime}</strong></span>
     </div>
 
     <div class=""weather-row"">
@@ -75,20 +76,15 @@ namespace ThGameMode.WebServer
             </div>
         </div>
 
-        <div class=""grid grid-2"">
+        <div class=""grid grid-1"">
             <div class=""card"">
                 <div class=""card-header""><h2>Placa-Mãe (Múltiplos Sensores)</h2><span class=""value"" id=""mb-system-temp"">{s.MbSystemTempC}°C</span></div>
                 <div class=""card-footer"">
                     <span>Sistema: <strong id=""mb-system-temp"">{s.MbSystemTempC}</strong>°C</span>
                     <span>VRM: <strong id=""mb-vrm-temp"">{s.MbVrmTempC}</strong>°C</span>
-                </div>
-                <div class=""card-footer"">
                     <span>PCH Hub: <strong id=""mb-pch-temp"">{s.MbPchTempC}</strong>°C</span>
                     <span>Soquete: <strong id=""mb-aux-temp"">{s.MbAuxTempC}</strong>°C</span>
                 </div>
-            </div>
-            <div class=""card uptime-card"">
-                <div class=""card-header""><h2>Uptime</h2><span class=""value"" id=""uptime"">{s.Uptime}</span></div>
             </div>
         </div>
 
