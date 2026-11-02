@@ -23,19 +23,21 @@ function updateAll() {
                 document.getElementById('cpu-bar').style.width = clamp(d.cpu.percent) + '%';
                 document.getElementById('cpu-count').textContent = d.cpu.count;
                 document.getElementById('cpu-freq').textContent = Math.round(d.cpu.freq_current / 1000);
+                if (d.cpu.temperature !== undefined) document.getElementById('cpu-temp').textContent = d.cpu.temperature;
 
                 // RAM
                 document.getElementById('mem-percent').textContent = d.memory.percent + '%';
                 document.getElementById('mem-bar').style.width = clamp(d.memory.percent) + '%';
                 document.getElementById('mem-used').textContent = d.memory.used;
                 document.getElementById('mem-total').textContent = d.memory.total;
+                if (d.memory.temperature !== undefined) document.getElementById('mem-temp').textContent = d.memory.temperature;
 
                 // Disco
                 document.getElementById('disk-percent').textContent = d.disk.percent + '%';
                 document.getElementById('disk-bar').style.width = clamp(d.disk.percent) + '%';
                 document.getElementById('disk-used').textContent = d.disk.used;
                 document.getElementById('disk-free').textContent = d.disk.free;
-                document.getElementById('disk-total').textContent = d.disk.total;
+                if (d.disk.temperature !== undefined) document.getElementById('disk-temp').textContent = d.disk.temperature;
 
                 // GPU
                 document.getElementById('gpu-percent').textContent = d.gpu.percent + '%';
@@ -43,6 +45,13 @@ function updateAll() {
                 if (d.gpu.name) {
                     var gpuEl = document.getElementById('gpu-name');
                     if (gpuEl) gpuEl.textContent = d.gpu.name;
+                }
+                if (d.gpu.temperature !== undefined) document.getElementById('gpu-temp').textContent = d.gpu.temperature;
+
+                // Placa-Mãe
+                if (d.motherboard && d.motherboard.temperature !== undefined) {
+                    var mbEl = document.getElementById('mb-temp');
+                    if (mbEl) mbEl.textContent = d.motherboard.temperature + '°C';
                 }
 
                 // Clima

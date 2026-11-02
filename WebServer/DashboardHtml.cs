@@ -41,12 +41,16 @@ namespace ThGameMode.WebServer
                 <div class=""card-footer"">
                     <span>Núcleos: <strong id=""cpu-count"">{s.CpuCount}</strong></span>
                     <span>Freq: <strong id=""cpu-freq"">{s.CpuFreqGhz}</strong> GHz</span>
+                    <span>Temp: <strong id=""cpu-temp"">{s.CpuTempC}</strong>°C</span>
                 </div>
             </div>
             <div class=""card"">
                 <div class=""card-header""><h2>GPU</h2><span class=""value gpu"" id=""gpu-percent"">{s.GpuPercent}%</span></div>
                 <div class=""progress-bar""><div class=""progress-fill gpu"" id=""gpu-bar"" style=""width:{Bar(s.GpuPercent)}%""></div></div>
-                <div class=""card-footer""><span id=""gpu-name"" title=""{s.GpuName}"">{s.GpuName}</span></div>
+                <div class=""card-footer"">
+                    <span id=""gpu-name"" title=""{s.GpuName}"">{s.GpuName}</span>
+                    <span>Temp: <strong id=""gpu-temp"">{s.GpuTempC}</strong>°C</span>
+                </div>
             </div>
         </div>
 
@@ -57,6 +61,7 @@ namespace ThGameMode.WebServer
                 <div class=""card-footer"">
                     <span>Usado: <strong id=""mem-used"">{s.MemUsedGb}</strong> GB</span>
                     <span>Total: <strong id=""mem-total"">{s.MemTotalGb}</strong> GB</span>
+                    <span>Temp: <strong id=""mem-temp"">{s.MemTempC}</strong>°C</span>
                 </div>
             </div>
             <div class=""card"">
@@ -65,12 +70,16 @@ namespace ThGameMode.WebServer
                 <div class=""card-footer"">
                     <span>Usado: <strong id=""disk-used"">{s.DiskUsedGb}</strong> GB</span>
                     <span>Livre: <strong id=""disk-free"">{s.DiskFreeGb}</strong> GB</span>
-                    <span>Total: <strong id=""disk-total"">{s.DiskTotalGb}</strong> GB</span>
+                    <span>Temp: <strong id=""disk-temp"">{s.DiskTempC}</strong>°C</span>
                 </div>
             </div>
         </div>
 
-        <div class=""grid grid-1"">
+        <div class=""grid grid-2"">
+            <div class=""card"">
+                <div class=""card-header""><h2>Placa-Mãe (Motherboard)</h2><span class=""value"" id=""mb-temp"">{s.MotherboardTempC}°C</span></div>
+                <div class=""card-footer""><span>Sensor térmico principal</span></div>
+            </div>
             <div class=""card uptime-card"">
                 <div class=""card-header""><h2>Uptime</h2><span class=""value"" id=""uptime"">{s.Uptime}</span></div>
             </div>

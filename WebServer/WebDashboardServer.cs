@@ -165,26 +165,33 @@ namespace ThGameMode.WebServer
                         {
                             percent = s.CpuPercent,
                             count = s.CpuCount,
-                            freq_current = s.CpuFreqGhz * 1000   // MHz (compatível com app.js)
+                            freq_current = s.CpuFreqGhz * 1000,   // MHz (compatível com app.js)
+                            temperature = s.CpuTempC
                         },
                         memory = new
                         {
                             percent = s.MemPercent,
                             used = s.MemUsedGb,
-                            total = s.MemTotalGb
+                            total = s.MemTotalGb,
+                            temperature = s.MemTempC
                         },
                         disk = new
                         {
                             percent = s.DiskPercent,
                             used = s.DiskUsedGb,
                             free = s.DiskFreeGb,
-                            total = s.DiskTotalGb
+                            total = s.DiskTotalGb,
+                            temperature = s.DiskTempC
                         },
                         gpu = new
                         {
                             name = s.GpuName,
                             percent = s.GpuPercent,
                             temperature = s.GpuTempC
+                        },
+                        motherboard = new
+                        {
+                            temperature = s.MotherboardTempC
                         },
                         weather = new
                         {
