@@ -48,10 +48,24 @@ function updateAll() {
                 }
                 if (d.gpu.temperature !== undefined) document.getElementById('gpu-temp').textContent = d.gpu.temperature;
 
-                // Placa-Mãe
-                if (d.motherboard && d.motherboard.temperature !== undefined) {
-                    var mbEl = document.getElementById('mb-temp');
-                    if (mbEl) mbEl.textContent = d.motherboard.temperature + '°C';
+                // Placa-Mãe (Múltiplos Sensores)
+                if (d.motherboard) {
+                    if (d.motherboard.system_temperature !== undefined) {
+                        var el = document.getElementById('mb-system-temp');
+                        if (el) el.textContent = d.motherboard.system_temperature + '°C';
+                    }
+                    if (d.motherboard.vrm_temperature !== undefined) {
+                        var el = document.getElementById('mb-vrm-temp');
+                        if (el) el.textContent = d.motherboard.vrm_temperature + '°C';
+                    }
+                    if (d.motherboard.pch_temperature !== undefined) {
+                        var el = document.getElementById('mb-pch-temp');
+                        if (el) el.textContent = d.motherboard.pch_temperature + '°C';
+                    }
+                    if (d.motherboard.aux_temperature !== undefined) {
+                        var el = document.getElementById('mb-aux-temp');
+                        if (el) el.textContent = d.motherboard.aux_temperature + '°C';
+                    }
                 }
 
                 // Clima

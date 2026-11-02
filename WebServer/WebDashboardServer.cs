@@ -191,7 +191,10 @@ namespace ThGameMode.WebServer
                         },
                         motherboard = new
                         {
-                            temperature = s.MotherboardTempC
+                            system_temperature = s.MbSystemTempC,
+                            vrm_temperature = s.MbVrmTempC,
+                            pch_temperature = s.MbPchTempC,
+                            aux_temperature = s.MbAuxTempC
                         },
                         weather = new
                         {

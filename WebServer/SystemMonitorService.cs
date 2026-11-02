@@ -60,7 +60,10 @@ namespace ThGameMode.WebServer
                 int cpuTemp = GetCpuTemp(cpu.Percent);
                 int memTemp = GetMemTemp(mem.Percent);
                 int diskTemp = GetDiskTemp();
-                int mbTemp = GetMotherboardTemp(cpuTemp);
+                int mbSystemTemp = (int)(cpuTemp * 0.70 + 8);
+                int mbVrmTemp = (int)(cpuTemp * 0.85 + 12);
+                int mbPchTemp = (int)(cpuTemp * 0.65 + 15);
+                int mbAuxTemp = (int)(cpuTemp * 0.80 + 10);
 
                 _current = new SystemStats
                 {
@@ -80,7 +83,10 @@ namespace ThGameMode.WebServer
                     GpuName = gpu.Name,
                     GpuPercent = gpu.Percent,
                     GpuTempC = gpu.TempC,
-                    MotherboardTempC = mbTemp,
+                    MbSystemTempC = Math.Clamp(mbSystemTemp, 25, 65),
+                    MbVrmTempC = Math.Clamp(mbVrmTemp, 30, 95),
+                    MbPchTempC = Math.Clamp(mbPchTemp, 30, 75),
+                    MbAuxTempC = Math.Clamp(mbAuxTemp, 28, 70),
                     Uptime = uptime,
                     WeatherTemp = weather?.Temp ?? "--",
                     WeatherDesc = weather?.Desc ?? "Sem internet",
@@ -466,7 +472,10 @@ namespace ThGameMode.WebServer
         public int GpuPercent { get; init; }
         public int GpuTempC { get; init; }
 
-        public int MotherboardTempC { get; init; }
+        public int MbSystemTempC { get; init; }
+        public int MbVrmTempC { get; init; }
+        public int MbPchTempC { get; init; }
+        public int MbAuxTempC { get; init; }
 
         public string Uptime { get; init; } = "--";
         public string WeatherTemp { get; init; } = "--";

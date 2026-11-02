@@ -77,8 +77,15 @@ namespace ThGameMode.WebServer
 
         <div class=""grid grid-2"">
             <div class=""card"">
-                <div class=""card-header""><h2>Placa-Mãe (Motherboard)</h2><span class=""value"" id=""mb-temp"">{s.MotherboardTempC}°C</span></div>
-                <div class=""card-footer""><span>Sensor térmico principal</span></div>
+                <div class=""card-header""><h2>Placa-Mãe (Múltiplos Sensores)</h2><span class=""value"" id=""mb-system-temp"">{s.MbSystemTempC}°C</span></div>
+                <div class=""card-footer"">
+                    <span>Sistema: <strong id=""mb-system-temp"">{s.MbSystemTempC}</strong>°C</span>
+                    <span>VRM: <strong id=""mb-vrm-temp"">{s.MbVrmTempC}</strong>°C</span>
+                </div>
+                <div class=""card-footer"">
+                    <span>PCH Hub: <strong id=""mb-pch-temp"">{s.MbPchTempC}</strong>°C</span>
+                    <span>Soquete: <strong id=""mb-aux-temp"">{s.MbAuxTempC}</strong>°C</span>
+                </div>
             </div>
             <div class=""card uptime-card"">
                 <div class=""card-header""><h2>Uptime</h2><span class=""value"" id=""uptime"">{s.Uptime}</span></div>
