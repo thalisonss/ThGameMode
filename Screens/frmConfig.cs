@@ -173,6 +173,31 @@ namespace ThGameMode.Screens
             };
             _trayMenu.Items.Add(menuDashboard);
 
+            var menuToggleServer = new ToolStripMenuItem();
+            void UpdateServerMenuText()
+            {
+                bool running = Program.DashboardServer?.IsRunning ?? false;
+                menuToggleServer.Text = running ? "🔴 Desligar Servidor Web" : "🟢 Ligar Servidor Web";
+            }
+            UpdateServerMenuText();
+
+            menuToggleServer.Click += (s, e) =>
+            {
+                bool running = Program.DashboardServer?.IsRunning ?? false;
+                if (running)
+                {
+                    Program.DashboardServer?.Stop();
+                    MessageBox.Show("Servidor Web do Dashboard desligado.", "ThGameMode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    Program.DashboardServer?.Start();
+                    MessageBox.Show("Servidor Web do Dashboard ligado.", "ThGameMode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                UpdateServerMenuText();
+            };
+            _trayMenu.Items.Add(menuToggleServer);
+
             _trayMenu.Items.Add(new ToolStripSeparator());
             _trayMenu.Items.Add("Sair", null, (s, e) =>
             {
