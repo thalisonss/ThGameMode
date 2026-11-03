@@ -46,6 +46,13 @@ Além disso, o app sobe um servidor HTTP próprio na porta `5000` e serve um das
 - Restaura o plano original ao parar a detecção.
 - Reavalia o estado imediatamente ao adicionar/remover itens ou salvar a configuração.
 
+### Fechamento e reabertura de aplicativos
+- Permite escolher aplicativos que devem ser fechados ao entrar no modo de alto desempenho.
+- Os mesmos aplicativos são reabertos quando o monitor volta para o modo de economia, quando a detecção é desativada ou quando o app é encerrado.
+- A lista é configurada na seção **Open and Close Application** da janela principal, com busca, refresh e opção de adicionar um `.exe` manualmente.
+- Os caminhos dos executáveis são persistidos no JSON para permitir a reabertura depois.
+- Só entram na reabertura os aplicativos que o ThGameMode conseguiu fechar; apps que já estavam fechados não são abertos sem necessidade.
+
 ### Bandeja do Windows
 - Ícone muda conforme o estado: economia, alto desempenho ou desativado.
 - Tooltip com modo atual, tempo ativo, endereço do dashboard e horário da última mudança.
@@ -102,6 +109,17 @@ Além disso, o app sobe um servidor HTTP próprio na porta `5000` e serve um das
 - Ao parar a detecção, o plano que estava ativo antes da primeira troca é restaurado.
 
 > Na primeira avaliação sem nenhum item em execução, o plano atual é mantido. O plano de economia é aplicado na transição de "algo em execução" para "nada em execução".
+
+### Fechamento e reabertura de aplicativos
+
+- A lista `ListServicesOpenClose` define os aplicativos que devem ser fechados no modo de alto desempenho.
+- Ao entrar no modo de alto desempenho, o app tenta fechar cada aplicativo da lista:
+  1. procura processos com o nome configurado;
+  2. tenta fechar pela janela principal (`CloseMainWindow`);
+  3. se não responder em 5 segundos, encerra o processo (`Kill`).
+- Ao voltar para o modo de economia, ao desativar a detecção ou ao sair, o app reabre somente os aplicativos que ele próprio fechou.
+- O caminho do executável é descoberto no momento do fechamento e salvo em `OpenCloseExecutablePaths`. Também é possível informar o `.exe` manualmente pela interface.
+- Se o caminho não existir mais ou não estiver salvo, a reabertura daquele aplicativo falha e fica registrada no log.
 
 ### Dashboard web
 
@@ -198,7 +216,8 @@ A pasta publicada contém o executável, as DLLs, os ícones, o `wwwroot` e o `T
 3. Escolha o **plano de energia com aplicativo aberto** e o **plano de energia com aplicativo fechado**.
 4. Defina o **intervalo de verificação** em segundos.
 5. Na lista da esquerda, pesquise e adicione os jogos, aplicativos ou serviços que devem ativar o modo de alto desempenho.
-6. Clique em **Save**.
+6. Na seção **Open and Close Application**, adicione os aplicativos que devem ser fechados no modo de alto desempenho e reabertos na economia. Use **Refresh** para atualizar a lista de processos em execução ou **Adicionar .exe** para escolher um executável manualmente.
+7. Clique em **Save**.
 
 A lista de planos é obtida com `powercfg /list`. Se necessário, consulte os GUIDs manualmente:
 
@@ -211,8 +230,7 @@ powercfg /getactivescheme
 
 | Opção | Ação |
 |---|---|
-| Ativar detecção | Inicia o monitor de serviços/processos. |
-| Desativar detecção | Para o monitor e restaura o plano de energia original. |
+| Detecção ativada | Item com marca de seleção: liga/desliga o monitor de serviços/processos. Ao desligar, o plano original é restaurado e os aplicativos fechados são reabertos. |
 | Abrir configurações | Mostra a janela principal. |
 | Verificar atualizações | Consulta a última release no GitHub. |
 | Baixar nova versão | Abre a página da release (habilitado quando há atualização). |
@@ -246,7 +264,17 @@ Exemplo:
     "PEAK",
     "ProtonVPNService"
   ],
-  "ManualExecutablePaths": {}
+  "ListServicesOpenClose": [
+    "MEGAsync",
+    "IDMan",
+    "ProtonVPN.Client"
+  ],
+  "ManualExecutablePaths": {},
+  "OpenCloseExecutablePaths": {
+    "IDMan": "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe",
+    "MEGAsync": "C:\\Users\\usuario\\AppData\\Local\\MEGAsync\\MEGAsync.exe",
+    "ProtonVPN.Client": "C:\\Program Files\\Proton\\VPN\\v4.4.1\\ProtonVPN.Client.exe"
+  }
 }
 ```
 
@@ -256,7 +284,9 @@ Exemplo:
 | `PowerPlanOpenApp` | GUID do plano aplicado quando algum item monitorado está em execução. |
 | `PowerPlanClosedApp` | GUID do plano aplicado quando nada monitorado está em execução. |
 | `ListServices` | Serviços e/ou processos monitorados. Aceita `NomeDoProcesso` ou `NomeDoProcesso\|trecho da janela` (formato suportado pelo monitor). |
-| `ManualExecutablePaths` | Campo reservado para compatibilidade; não é utilizado pela interface atual. |
+| `ListServicesOpenClose` | Aplicativos que devem ser fechados no modo de alto desempenho e reabertos ao voltar para economia. |
+| `ManualExecutablePaths` | Caminhos informados manualmente para itens monitorados. Campo mantido para compatibilidade. |
+| `OpenCloseExecutablePaths` | Caminhos dos executáveis usados para reabrir os aplicativos de `ListServicesOpenClose`. |
 
 Observações:
 
@@ -468,6 +498,9 @@ logs\log_YYYYMMDD.txt
 - **Porta 5000:** precisa estar livre. O registro de `urlacl` pode exigir UAC na primeira execução.
 - **Firewall:** se o dashboard não abrir por outro dispositivo, verifique se a porta `5000` está liberada no Firewall do Windows.
 - **Plano de economia na inicialização:** na primeira avaliação sem nenhum item monitorado, o plano atual é mantido; a troca para o plano de economia acontece na transição de alto desempenho para ocioso.
+- **Fechamento de aplicativos:** o recurso encerra processos pelo nome configurado. Salve o trabalho antes de usar em aplicativos com edição aberta, pois o encerramento forçado pode descartar alterações não salvas.
+- **Serviços na lista de fechamento:** a interface permite adicionar serviços, mas o fechamento é feito pelo processo correspondente. Serviços protegidos ou reiniciados automaticamente pelo Windows podem continuar ativos.
+- **Reabertura:** depende de o caminho do executável estar salvo em `OpenCloseExecutablePaths` e ainda existir. Aplicativos atualizados em pastas versionadas podem precisar ter o caminho atualizado manualmente.
 - **Instâncias múltiplas:** o app não bloqueia a execução de mais de uma instância ao mesmo tempo.
 
 ---
