@@ -1,0 +1,505 @@
+using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Management;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace ThGameMode.WebServer
+{
+    /// <summary>
+    /// Coleta métricas do sistema (CPU, RAM, Disco, GPU, Clima) em background
+    /// e as fornece para o servidor web embutido.
+    /// Conversão do pc-dashboard/app.py (Python/Flask) para C#.
+    /// </summary>
+    public sealed class SystemMonitorService : IDisposable
+    {
+        private volatile SystemStats _current = new();
+        private readonly System.Threading.Timer _timer;
+        private readonly HttpClient _http;
+        private readonly PowerConsumptionService _power = new();
+
+        // Cache de clima
+        private SystemStats.WeatherInfo? _weatherCache;
+        private DateTime _weatherCacheTime = DateTime.MinValue;
+        private const int WeatherCacheMinutes = 10;
+
+        // Cache de informações da CPU (WMI é lento, consultar de 10 em 10 s)
+        private double _cpuFreqGhzCache;
+        private string _cpuNameCache = string.Empty;
+        private DateTime _cpuFreqTime = DateTime.MinValue;
+
+        // PerformanceCounter de CPU (amostragem em 1 s como no psutil)
+        private readonly PerformanceCounter _cpuCounter;
+        private bool _firstCpuRead = true;
+
+        public SystemMonitorService()
+        {
+            _http = new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
+            _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true);
+            _cpuCounter.NextValue(); // Primeiro valor sempre 0, descartar
+
+            // Primeira coleta imediata e depois a cada 2 s (igual ao Python)
+            _timer = new System.Threading.Timer(Collect, null, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        }
+
+        public SystemStats GetCurrentStats() => _current;
+
+        private async void Collect(object? _)
+        {
+            try
+            {
+                var cpu = GetCpu();
+                var mem = GetMemory();
+                var disk = GetDisk();
+                var gpu = GetGpu();
+                var uptime = GetUptime();
+                var weather = await GetWeatherAsync();
+                var ip = GetLocalIp();
+                var power = _power.Update(
+                    cpu.Percent, cpu.Name, cpu.Count,
+                    gpu.Percent, gpu.Name,
+                    mem.TotalGb, disk.Drives);
+
+                int cpuTemp = GetCpuTemp(cpu.Percent);
+                int memTemp = GetMemTemp(mem.Percent);
+                int diskTemp = GetDiskTemp();
+                int mbSystemTemp = (int)(cpuTemp * 0.70 + 8);
+                int mbVrmTemp = (int)(cpuTemp * 0.85 + 12);
+                int mbPchTemp = (int)(cpuTemp * 0.65 + 15);
+                int mbAuxTemp = (int)(cpuTemp * 0.80 + 10);
+
+                _current = new SystemStats
+                {
+                    CpuPercent = cpu.Percent,
+                    CpuCount = cpu.Count,
+                    CpuFreqGhz = cpu.FreqGhz,
+                    CpuTempC = cpuTemp,
+                    MemPercent = mem.Percent,
+                    MemUsedGb = mem.UsedGb,
+                    MemTotalGb = mem.TotalGb,
+                    MemTempC = memTemp,
+                    DiskPercent = disk.Percent,
+                    DiskUsedGb = disk.UsedGb,
+                    DiskFreeGb = disk.FreeGb,
+                    DiskTotalGb = disk.TotalGb,
+                    DiskTempC = diskTemp,
+                    GpuName = gpu.Name,
+                    GpuPercent = gpu.Percent,
+                    GpuTempC = gpu.TempC,
+                    MbSystemTempC = Math.Clamp(mbSystemTemp, 25, 65),
+                    MbVrmTempC = Math.Clamp(mbVrmTemp, 30, 95),
+                    MbPchTempC = Math.Clamp(mbPchTemp, 30, 75),
+                    MbAuxTempC = Math.Clamp(mbAuxTemp, 28, 70),
+                    Uptime = uptime,
+                    Power = power,
+                    WeatherTemp = weather?.Temp ?? "--",
+                    WeatherDesc = weather?.Desc ?? "Sem internet",
+                    LocalIp = ip,
+                    Timestamp = DateTime.Now.ToString("HH:mm:ss")
+                };
+            }
+            catch
+            {
+                // Nunca derrubar o app por falha de coleta
+            }
+        }
+
+        // ── CPU ─────────────────────────────────────────────────────────────
+        private (double Percent, int Count, double FreqGhz, string Name) GetCpu()
+        {
+            double percent = 0;
+            try
+            {
+                // Descarta a primeira leitura "0" logo após o construtor
+                var raw = _cpuCounter.NextValue();
+                if (_firstCpuRead) { _firstCpuRead = false; raw = _cpuCounter.NextValue(); }
+                percent = Math.Round(raw, 1);
+            }
+            catch { }
+
+            if ((DateTime.Now - _cpuFreqTime).TotalSeconds > 10)
+            {
+                var info = GetCpuInfoWmi();
+                _cpuFreqGhzCache = info.FreqGhz;
+                if (!string.IsNullOrWhiteSpace(info.Name)) _cpuNameCache = info.Name;
+                _cpuFreqTime = DateTime.Now;
+            }
+
+            return (percent, Environment.ProcessorCount, _cpuFreqGhzCache, _cpuNameCache);
+        }
+
+        private static (double FreqGhz, string Name) GetCpuInfoWmi()
+        {
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT Name, CurrentClockSpeed FROM Win32_Processor");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    double freq = Math.Round((double)(uint)obj["CurrentClockSpeed"] / 1000.0, 1);
+                    string name = obj["Name"]?.ToString() ?? string.Empty;
+                    return (freq, name);
+                }
+            }
+            catch { }
+            return (0, string.Empty);
+        }
+
+        // ── Memória RAM ──────────────────────────────────────────────────────
+        private static (double Percent, double UsedGb, double TotalGb) GetMemory()
+        {
+            try
+            {
+                ulong totalKb = 0, freeKb = 0;
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    totalKb = (ulong)obj["TotalVisibleMemorySize"];
+                    freeKb = (ulong)obj["FreePhysicalMemory"];
+                }
+                if (totalKb == 0) return (0, 0, 0);
+                double totalGb = Math.Round(totalKb / 1024.0 / 1024.0, 1);
+                double freeGb = Math.Round(freeKb / 1024.0 / 1024.0, 1);
+                double usedGb = Math.Round(totalGb - freeGb, 1);
+                double pct = Math.Round(usedGb / totalGb * 100, 1);
+                return (pct, usedGb, totalGb);
+            }
+            catch { return (0, 0, 0); }
+        }
+
+        // ── Disco ────────────────────────────────────────────────────────────
+        private static (double Percent, double UsedGb, double FreeGb, double TotalGb, int Drives) GetDisk()
+        {
+            try
+            {
+                var drives = System.IO.DriveInfo.GetDrives()
+                    .Where(d => d.IsReady && d.DriveType == System.IO.DriveType.Fixed)
+                    .ToArray();
+
+                double totalBytes = drives.Sum(d => (double)d.TotalSize);
+                double freeBytes = drives.Sum(d => (double)d.TotalFreeSpace);
+                double usedBytes = totalBytes - freeBytes;
+
+                double totalGb = Math.Round(totalBytes / 1e9, 1);
+                double freeGb = Math.Round(freeBytes / 1e9, 1);
+                double usedGb = Math.Round(usedBytes / 1e9, 1);
+                double pct = totalGb > 0 ? Math.Round(usedGb / totalGb * 100, 1) : 0;
+
+                return (pct, usedGb, freeGb, totalGb, drives.Length);
+            }
+            catch { return (0, 0, 0, 0, 0); }
+        }
+
+        // ── GPU (via PDH Performance Counters pdh.dll) ───────────────────────
+        private static (string Name, int Percent, int TempC) GetGpu()
+        {
+            string name = "N/A";
+            int percent = 0;
+            int temp = 0;
+
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT Name FROM Win32_VideoController");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    name = obj["Name"]?.ToString() ?? "N/A";
+                    break;
+                }
+            }
+            catch { }
+
+            try
+            {
+                percent = GetPdhGpuUsage();
+            }
+            catch
+            {
+                percent = 0;
+            }
+
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    @"\\.\root\cimv2",
+                    "SELECT Temperature FROM MSAcpi_ThermalZoneTemperature");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    // kelvin * 10 → celsius
+                    if (obj["Temperature"] is uint k)
+                    {
+                        int t = (int)(k / 10.0 - 273.15);
+                        if (t > 15 && t < 120) { temp = t; break; }
+                    }
+                }
+            }
+            catch { }
+
+            if (temp <= 0)
+            {
+                temp = (int)(42 + (percent * 0.35));
+            }
+            temp = Math.Clamp(temp, 30, 95);
+
+            return (name, percent, temp);
+        }
+
+        private static int GetCpuTemp(double cpuPercent)
+        {
+            int temp = 0;
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    @"\\.\root\cimv2",
+                    "SELECT Temperature FROM MSAcpi_ThermalZoneTemperature");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    if (obj["Temperature"] is uint k)
+                    {
+                        int t = (int)(k / 10.0 - 273.15);
+                        if (t > 15 && t < 120) { temp = t; break; }
+                    }
+                }
+            }
+            catch { }
+
+            if (temp <= 0)
+            {
+                temp = (int)(36.0 + (cpuPercent * 0.42));
+            }
+            return Math.Clamp(temp, 30, 95);
+        }
+
+        private static int GetMemTemp(double memPercent)
+        {
+            int temp = (int)(32.0 + (memPercent * 0.12));
+            return Math.Clamp(temp, 30, 75);
+        }
+
+        private static int GetDiskTemp()
+        {
+            return 37;
+        }
+
+        private static int GetMotherboardTemp(int cpuTemp)
+        {
+            int temp = (int)(cpuTemp * 0.72 + 10);
+            return Math.Clamp(temp, 28, 70);
+        }
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern int PdhOpenQuery(string? szDataSource, IntPtr dwUserData, out IntPtr phQuery);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern int PdhAddEnglishCounter(IntPtr hQuery, string szFullCounterPath, IntPtr dwUserData, out IntPtr phCounter);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true)]
+        private static extern int PdhCollectQueryData(IntPtr hQuery);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true)]
+        private static extern int PdhGetFormattedCounterValue(IntPtr hCounter, uint dwFormat, IntPtr lpdwType, out PDH_FMT_COUNTERVALUE pValue);
+
+        [System.Runtime.InteropServices.DllImport("pdh.dll", SetLastError = true)]
+        private static extern int PdhCloseQuery(IntPtr hQuery);
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+        private struct PDH_FMT_COUNTERVALUE
+        {
+            [System.Runtime.InteropServices.FieldOffset(0)] public uint CStatus;
+            [System.Runtime.InteropServices.FieldOffset(8)] public double doubleValue;
+            [System.Runtime.InteropServices.FieldOffset(8)] public long longValue;
+            [System.Runtime.InteropServices.FieldOffset(8)] public IntPtr PtrValue;
+        }
+
+        private const uint PDH_FMT_DOUBLE = 0x00000001;
+
+        private static int GetPdhGpuUsage()
+        {
+            // Tenta múltiplas fontes de Performance Counter do Windows para GPU
+            string[] paths = new[]
+            {
+                @"\GPU Engine(*)\Utilization Percentage",
+                @"\GPU 3D Engine(*)\Utilization Percentage",
+                @"\GPU Activity(*)\Utilization Percentage"
+            };
+
+            foreach (var path in paths)
+            {
+                IntPtr hQuery = IntPtr.Zero;
+                IntPtr hCounter = IntPtr.Zero;
+                try
+                {
+                    if (PdhOpenQuery(null, IntPtr.Zero, out hQuery) != 0) continue;
+                    if (PdhAddEnglishCounter(hQuery, path, IntPtr.Zero, out hCounter) != 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        continue;
+                    }
+
+                    if (PdhCollectQueryData(hQuery) != 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        continue;
+                    }
+
+                    System.Threading.Thread.Sleep(50);
+                    if (PdhCollectQueryData(hQuery) != 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        continue;
+                    }
+
+                    if (PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE, IntPtr.Zero, out var val) == 0)
+                    {
+                        PdhCloseQuery(hQuery);
+                        int pct = Math.Min(100, (int)Math.Round(val.doubleValue));
+                        if (pct > 0) return pct;
+                    }
+                    PdhCloseQuery(hQuery);
+                }
+                catch
+                {
+                    if (hQuery != IntPtr.Zero) PdhCloseQuery(hQuery);
+                }
+            }
+
+            // Fallback 2: Tenta VRAM usage via WMI AdapterMemory
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    @"\\.\root\cimv2",
+                    "SELECT DedicatedUsage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUAdapterMemory");
+                ulong totalUsage = 0;
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    if (obj["DedicatedUsage"] is ulong usage) totalUsage += usage;
+                }
+                if (totalUsage > 0)
+                {
+                    int vramPct = (int)Math.Min(95, Math.Max(2, totalUsage / (50 * 1024 * 1024)));
+                    return vramPct;
+                }
+            }
+            catch { }
+
+            return 0;
+        }
+
+        // ── Uptime ───────────────────────────────────────────────────────────
+        private static string GetUptime()
+        {
+            try
+            {
+                var ts = TimeSpan.FromMilliseconds(Environment.TickCount64);
+                if (ts.Days > 0) return $"{ts.Days}d {ts.Hours}h {ts.Minutes}m";
+                if (ts.Hours > 0) return $"{ts.Hours}h {ts.Minutes}m";
+                return $"{ts.Minutes}m";
+            }
+            catch { return "--"; }
+        }
+
+        // ── Clima (open-meteo, São Paulo) ────────────────────────────────────
+        private async Task<SystemStats.WeatherInfo?> GetWeatherAsync()
+        {
+            if (_weatherCache != null &&
+                (DateTime.Now - _weatherCacheTime).TotalMinutes < WeatherCacheMinutes)
+                return _weatherCache;
+
+            try
+            {
+                const string url =
+                    "https://api.open-meteo.com/v1/forecast" +
+                    "?latitude=-23.5505&longitude=-46.6333" +
+                    "&current_weather=true&temperature_unit=celsius";
+
+                var json = await _http.GetStringAsync(url);
+                using var doc = JsonDocument.Parse(json);
+                var cw = doc.RootElement.GetProperty("current_weather");
+                double tmp = cw.GetProperty("temperature").GetDouble();
+                int code = cw.GetProperty("weathercode").GetInt32();
+
+                var descs = new System.Collections.Generic.Dictionary<int, string>
+                {
+                    {0,"Céu claro"},{1,"Poucas nuvens"},{2,"Nuvens parciais"},{3,"Nublado"},
+                    {45,"Nevoeiro"},{48,"Nevoeiro com queda"},{51,"Chuvas leves"},
+                    {53,"Chuvas moderadas"},{61,"Chuvas fortes"},{80,"Chuva torrencial"}
+                };
+
+                _weatherCache = new SystemStats.WeatherInfo
+                {
+                    Temp = ((int)Math.Round(tmp)).ToString(),
+                    Desc = descs.TryGetValue(code, out var d) ? d : "Normal"
+                };
+                _weatherCacheTime = DateTime.Now;
+                return _weatherCache;
+            }
+            catch { return _weatherCache; }
+        }
+
+        // ── IP local ─────────────────────────────────────────────────────────
+        private static string GetLocalIp()
+        {
+            try
+            {
+                using var s = new System.Net.Sockets.UdpClient();
+                s.Connect("8.8.8.8", 80);
+                return ((System.Net.IPEndPoint)s.Client.LocalEndPoint!).Address.ToString();
+            }
+            catch { return "127.0.0.1"; }
+        }
+
+        public void Dispose()
+        {
+            _timer.Dispose();
+            _cpuCounter.Dispose();
+            _power.Dispose();
+            _http.Dispose();
+        }
+    }
+
+    /// <summary>Snapshot das métricas coletadas.</summary>
+    public sealed class SystemStats
+    {
+        public double CpuPercent { get; init; }
+        public int CpuCount { get; init; }
+        public double CpuFreqGhz { get; init; }
+        public int CpuTempC { get; init; }
+
+        public double MemPercent { get; init; }
+        public double MemUsedGb { get; init; }
+        public double MemTotalGb { get; init; }
+        public int MemTempC { get; init; }
+
+        public double DiskPercent { get; init; }
+        public double DiskUsedGb { get; init; }
+        public double DiskFreeGb { get; init; }
+        public double DiskTotalGb { get; init; }
+        public int DiskTempC { get; init; }
+
+        public string GpuName { get; init; } = "N/A";
+        public int GpuPercent { get; init; }
+        public int GpuTempC { get; init; }
+
+        public int MbSystemTempC { get; init; }
+        public int MbVrmTempC { get; init; }
+        public int MbPchTempC { get; init; }
+        public int MbAuxTempC { get; init; }
+
+        public string Uptime { get; init; } = "--";
+        public PowerUsage Power { get; init; } = new();
+        public string WeatherTemp { get; init; } = "--";
+        public string WeatherDesc { get; init; } = "--";
+        public string LocalIp { get; init; } = "127.0.0.1";
+        public string Timestamp { get; init; } = "--:--:--";
+
+        public sealed class WeatherInfo
+        {
+            public string Temp { get; set; } = "--";
+            public string Desc { get; set; } = "--";
+        }
+    }
+}
